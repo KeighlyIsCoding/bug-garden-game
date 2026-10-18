@@ -106,10 +106,62 @@ input, select { font: inherit; color: inherit; }
 @keyframes glow { 50% { box-shadow: 0 0 0 4px rgba(224,161,0,0.35), 0 3px 0 #6a4528; } }
 
 .moisture { position: absolute; left: 4px; bottom: 4px; width: 5px; border-radius: 3px; background: #6ec6ff; max-height: calc(100% - 8px); transition: height 1s linear; }
-.weed { position: absolute; font-size: clamp(14px, 2.4vw, 22px); }
-.weed.w0 { left: 10%; top: 8%; }
-.weed.w1 { right: 10%; top: 12%; transform: scaleX(-1); }
-.weed.w2 { right: 14%; bottom: 16%; }
+.plot-wrap { position: relative; }
+.plot-wrap > .plot { display: block; width: 100%; }
+/* Weeds are big grabbable targets layered over the plot: press and drag to pull. */
+.weed-spot { position: absolute; z-index: 2; width: clamp(40px, 32%, 64px); aspect-ratio: 1; }
+.weed-spot.w0 { left: 3%; top: 3%; }
+.weed-spot.w1 { right: 3%; top: 6%; }
+.weed-spot.w2 { right: 6%; bottom: 12%; }
+.weed {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; border-radius: 50%;
+  font-size: clamp(28px, 4.6vw, 44px); line-height: 1;
+  cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none;
+  transform: translate(var(--tx, 0px), var(--ty, 0px));
+}
+.weed .emoji { display: block; transform-origin: 50% 90%; transition: transform 0.15s; filter: drop-shadow(0 2px 1px rgba(0,0,0,0.3)); }
+.weed:hover { background: radial-gradient(rgba(255,255,255,0.3), transparent 70%); }
+.weed:hover .emoji { transform: scale(1.1) rotate(-4deg); }
+.weed:focus-visible { outline: 3px solid var(--gold); outline-offset: 0; background: radial-gradient(rgba(255,255,255,0.35), transparent 70%); }
+.weed.loosening .emoji { transform: translateY(-4px) scale(1.06, 1.14); }
+.weed.tugging { cursor: grabbing; }
+.weed.tugging .emoji { transform: scale(1.12, 1.28); }
+.weed .emoji.wiggle { animation: weed-wiggle 0.35s ease-in-out; }
+@keyframes weed-wiggle { 25% { rotate: -12deg; } 75% { rotate: 12deg; } }
+.weed-spot.w1 .emoji { scale: -1 1; }
+.weed-spot.uprooted { pointer-events: none; }
+.weed-spot.uprooted .weed { cursor: default; }
+.weed-spot.uprooted .emoji { animation: weed-uproot 0.7s ease-out forwards; }
+
+/* Speech bubble (see Bubble.tsx). The outer span is the live region; the body is what you see. */
+.bubble { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); z-index: 3; pointer-events: none; }
+.bubble-body {
+  display: block; white-space: nowrap;
+  background: #fffdf6; border: 2px solid #7a5232; border-radius: 999px; padding: 2px 8px;
+  font-size: 12px; font-weight: 800; color: #6a4528; box-shadow: 0 2px 0 rgba(0,0,0,0.15);
+  /* Pops in, then fades just before Bubble removes it at 1s. */
+  animation: bubble-in 0.2s ease-out, bubble-out 0.2s 0.8s ease-in forwards;
+}
+.bubble-good { background: #e7f3dc; border-color: var(--leaf); color: #2f6b1f; }
+@keyframes bubble-in { from { opacity: 0; translate: 0 6px; } }
+@keyframes bubble-out { to { opacity: 0; translate: 0 -8px; } }
+/* Keep bubbles inside the plot: corner weeds anchor their bubble to the inner side. */
+.weed-spot.w0 .bubble { left: 0; transform: none; }
+.weed-spot.w1 .bubble, .weed-spot.w2 .bubble { left: auto; right: 0; transform: none; }
+@keyframes weed-uproot {
+  0% { transform: translateY(0) scale(1.12, 1.28); opacity: 1; }
+  35% { transform: translateY(-34px) rotate(-18deg); opacity: 1; }
+  100% { transform: translate(18px, -20px) rotate(-70deg) scale(0.6); opacity: 0; }
+}
+.weed .dirt {
+  position: absolute; left: 50%; bottom: 14%; width: 6px; height: 6px; border-radius: 50%; background: #6a4528;
+  box-shadow: -14px -4px 0 #7a5232, 12px -6px 0 #5a3a20, -6px -12px 0 #7a5232, 8px 2px 0 #6a4528;
+  animation: dirt-puff 0.5s ease-out forwards;
+}
+@keyframes dirt-puff {
+  from { transform: translate(-50%, 0) scale(0.6); opacity: 1; }
+  to { transform: translate(-50%, -10px) scale(1.6); opacity: 0; }
+}
 .badge-fert { position: absolute; right: 6px; bottom: 14px; font-size: 18px; animation: twinkle 1.2s ease-in-out infinite; }
 @keyframes twinkle { 50% { opacity: 0.4; transform: scale(0.85); } }
 .badge-dry { position: absolute; top: 6px; left: 50%; transform: translateX(-50%); background: rgba(255,255,255,0.85); border-radius: 999px; padding: 0 8px; font-size: 11px; font-weight: 700; color: #b8433a; }
@@ -132,7 +184,7 @@ input, select { font: inherit; color: inherit; }
 @keyframes bob { 50% { transform: translateY(-3px); } }
 
 .garden-side .panel + .panel { margin-top: 12px; }
-.tools { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.tools { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 .tool { position: relative; border: 1px solid var(--line); background: #fff; border-radius: 10px; padding: 6px 2px; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 12px; font-weight: 700; }
 .tool .emoji { font-size: 22px; }
 .tool.active { background: #e7f3dc; border-color: var(--leaf); box-shadow: inset 0 0 0 2px var(--leaf); }

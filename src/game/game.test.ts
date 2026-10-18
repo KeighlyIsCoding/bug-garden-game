@@ -103,8 +103,9 @@ describe('garden', () => {
   it('weeding gives compost and compost makes fertilizer', () => {
     let s = newGame(0);
     s = { ...s, plots: s.plots.map((p) => ({ ...p, weeds: 3 })) };
-    for (const p of s.plots) s = reducer(s, { type: 'use', plotId: p.id, tool: 'weed', now: 0 });
+    for (const p of s.plots) s = reducer(s, { type: 'pullWeed', plotId: p.id, now: 0 });
     expect(s.compost).toBe(6);
+    expect(s.plots.every((p) => p.weeds === 2)).toBe(true);
     s = reducer(s, { type: 'makeFertilizer' });
     expect(s.fertilizer).toBe(3);
     expect(s.compost).toBe(3);

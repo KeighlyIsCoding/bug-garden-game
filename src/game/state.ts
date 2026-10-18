@@ -94,11 +94,12 @@ export interface GameState {
 export const SAVE_VERSION = 1;
 export const SAVE_KEY = 'bug-garden-save-v1';
 
-export type Tool = 'tend' | 'water' | 'weed' | 'fertilize' | 'harvest' | 'plant';
+export type Tool = 'tend' | 'water' | 'fertilize' | 'harvest' | 'plant';
 
 export type Action =
   | { type: 'tick'; now: number }
   | { type: 'use'; plotId: number; tool: Tool; seed?: string | null; now: number }
+  | { type: 'pullWeed'; plotId: number; now: number }
   | { type: 'waterAll' }
   | { type: 'harvestAll'; now: number }
   | { type: 'summon'; fruitKey: string; now: number }
@@ -279,6 +280,20 @@ function harvest(s: GameState, plot: Plot): GameState {
   return notify(next, msg + '!', 'good');
 }
 
+/** Weeds are pulled by hand (drag on a weed in the garden), not with a tool. */
+function pullWeed(s: GameState, plotId: number): GameState {
+  const plot = s.plots.find((p) => p.id === plotId);
+  if (!plot || plot.weeds === 0) return s;
+  let next = updatePlot(s, plotId, (p) => ({ ...p, weeds: p.weeds - 1 }));
+  next = { ...next, compost: next.compost + 1 };
+  if (rng() < WILD_SEED_CHANCE) {
+    const found = weightedSeed();
+    next = { ...next, seeds: addTo(next.seeds, found, 1) };
+    next = notify(next, `You found a ${PLANT_BY_ID[found].fruitName.toLowerCase()} seed in the soil!`, 'good');
+  }
+  return next;
+}
+
 function useTool(s: GameState, plotId: number, tool: Tool, seed: string | null | undefined, now: number): GameState {
   const plot = s.plots.find((p) => p.id === plotId);
   if (!plot) return s;
@@ -286,7 +301,6 @@ function useTool(s: GameState, plotId: number, tool: Tool, seed: string | null |
 
   if (tool === 'tend') {
     if (plant && isRipe(plant)) tool = 'harvest';
-    else if (plot.weeds > 0) tool = 'weed';
     else if (!plant && seed) tool = 'plant';
     else if (!plant) return notify(s, 'Pick a seed from your pouch to plant here.', 'info');
     else tool = 'water';
@@ -295,17 +309,6 @@ function useTool(s: GameState, plotId: number, tool: Tool, seed: string | null |
   switch (tool) {
     case 'water':
       return updatePlot(s, plotId, (p) => ({ ...p, moisture: 1 }));
-    case 'weed': {
-      if (plot.weeds === 0) return notify(s, 'No weeds here.', 'info');
-      let next = updatePlot(s, plotId, (p) => ({ ...p, weeds: p.weeds - 1 }));
-      next = { ...next, compost: next.compost + 1 };
-      if (rng() < WILD_SEED_CHANCE) {
-        const found = weightedSeed();
-        next = { ...next, seeds: addTo(next.seeds, found, 1) };
-        next = notify(next, `You found a ${PLANT_BY_ID[found].fruitName.toLowerCase()} seed in the soil!`, 'good');
-      }
-      return next;
-    }
     case 'fertilize': {
       if (!plant) return notify(s, 'Plant something before fertilizing.', 'warn');
       if (isRipe(plant)) return notify(s, 'This plant is ready to harvest.', 'info');
@@ -349,6 +352,9 @@ export function reducer(s: GameState, a: Action): GameState {
 
     case 'use':
       return useTool(advance(s, a.now), a.plotId, a.tool, a.seed, a.now);
+
+    case 'pullWeed':
+      return pullWeed(advance(s, a.now), a.plotId);
 
     case 'waterAll':
       return { ...s, plots: s.plots.map((p) => ({ ...p, moisture: 1 })) };

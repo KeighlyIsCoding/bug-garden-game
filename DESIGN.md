@@ -14,7 +14,7 @@ with its description, photo and conservation status pulled from Wikipedia.
 ## 1. Core loop
 
 ```
- plant seeds ──► tend (water / weed / fertilize) ──► harvest fruit
+ plant seeds ──► tend (water / pull weeds / fertilize) ──► harvest fruit
       ▲                                                   │
       │                                                   ▼
  buy / find seeds ◄── coins ◄── release duplicates ◄── summon bugs (gachapon)
@@ -136,7 +136,7 @@ and up to 3 weeds.
 |------------|--------|
 | **Plant**  | Uses a seed from the seed pouch on an empty, weed-free plot. |
 | **Water**  | Refills the plot's moisture to 100%. Free and unlimited, but moisture drains over ~70 s. Dry plants grow at 15% speed. |
-| **Weed**   | Pulls one weed. Each weed slows growth by 25%. Weeds give **compost**, and occasionally a random **wild seed** turns up in the soil. |
+| **Weed**   | Click and drag a weed in the plot to pull it out by hand (there is no weed tool). Keyboard: Tab to a weed and press Enter; each weed takes 1–4 presses, with "keep pulling" updates until it comes out. Each weed slows growth by 25%. Weeds give **compost**, and occasionally a random **wild seed** turns up in the soil. |
 | **Fertilize** | Uses 1 fertilizer: +70% growth speed for 90 s and qualifies the fruit for *Perfect*. 3 compost → 1 fertilizer. |
 | **Harvest** | Picks ripe fruit (2–3 per harvest, +1 if fertilized). Plants have a number of harvests (1–3) before they're spent; after a harvest they go back to flowering. Chance of a seed drop. |
 
