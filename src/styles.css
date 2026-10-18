@@ -133,17 +133,16 @@ input, select { font: inherit; color: inherit; }
 .weed-spot.uprooted .weed { cursor: default; }
 .weed-spot.uprooted .emoji { animation: weed-uproot 0.7s ease-out forwards; }
 
-/* Speech bubble (see Bubble.tsx). Stays invisible while empty; it fills in a moment after mounting. */
-.bubble {
-  position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); z-index: 3;
-  white-space: nowrap; pointer-events: none;
+/* Speech bubble (see Bubble.tsx). The outer span is the live region; the body is what you see. */
+.bubble { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); z-index: 3; pointer-events: none; }
+.bubble-body {
+  display: block; white-space: nowrap;
   background: #fffdf6; border: 2px solid #7a5232; border-radius: 999px; padding: 2px 8px;
   font-size: 12px; font-weight: 800; color: #6a4528; box-shadow: 0 2px 0 rgba(0,0,0,0.15);
+  /* Pops in, then fades just before Bubble removes it at 1s. */
+  animation: bubble-in 0.2s ease-out, bubble-out 0.2s 0.8s ease-in forwards;
 }
-.bubble:empty { opacity: 0; }
-.bubble:not(:empty) { animation: bubble-in 0.2s ease-out; }
 .bubble-good { background: #e7f3dc; border-color: var(--leaf); color: #2f6b1f; }
-.bubble-good:not(:empty) { animation: bubble-in 0.2s ease-out, bubble-out 0.4s 0.6s ease-in forwards; }
 @keyframes bubble-in { from { opacity: 0; translate: 0 6px; } }
 @keyframes bubble-out { to { opacity: 0; translate: 0 -8px; } }
 /* Keep bubbles inside the plot: corner weeds anchor their bubble to the inner side. */

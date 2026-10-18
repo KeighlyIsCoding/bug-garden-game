@@ -86,7 +86,10 @@ function Weed({ slot, onPull }: { slot: number; onPull: (byKeyboard: boolean) =>
         onPointerDown={(e) => {
           if (e.button !== 0) return;
           e.stopPropagation();
+          // preventDefault stops text selection, but also the browser's focus-on-click,
+          // so focus by hand: a click then Enter/Space should keep tugging this weed.
           e.preventDefault();
+          e.currentTarget.focus({ preventScroll: true });
           e.currentTarget.setPointerCapture(e.pointerId);
           drag.current = { x: e.clientX, y: e.clientY, id: e.pointerId };
           setTug({ x: 0, y: 0 });
