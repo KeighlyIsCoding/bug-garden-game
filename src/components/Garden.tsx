@@ -12,6 +12,7 @@ import {
   type Plot,
   type Tool,
 } from '../game/state';
+import { Bubble } from './Bubble';
 import { FruitIcon, PlantSprite } from './Icons';
 
 const TOOLS: { id: Tool; icon: string; label: string; hint: string }[] = [
@@ -39,15 +40,7 @@ const KEY_PULL_MESSAGES = ['Still stuck. Keep pulling!', 'It budged. Keep pullin
  * A single weed. Press and drag it a little to pull it out, or focus it and press Enter.
  * With the keyboard, a weed takes 1–4 tugs (random per weed) to come out.
  */
-function Weed({
-  slot,
-  onPull,
-  announce,
-}: {
-  slot: number;
-  onPull: (byKeyboard: boolean) => void;
-  announce: (msg: string) => void;
-}) {
+function Weed({ slot, onPull }: { slot: number; onPull: (byKeyboard: boolean) => void }) {
   const drag = useRef<{ x: number; y: number; id: number } | null>(null);
   const [tug, setTug] = useState<{ x: number; y: number } | null>(null);
   const [wiggles, setWiggles] = useState(0);
@@ -62,7 +55,6 @@ function Weed({
     }
     setTugs(done);
     setWiggles((w) => w + 1);
-    announce(KEY_PULL_MESSAGES[Math.min(done - 1, KEY_PULL_MESSAGES.length - 1)]);
   };
   const status = tugs > 0 ? KEY_PULL_MESSAGES[Math.min(tugs - 1, KEY_PULL_MESSAGES.length - 1)] : null;
 
@@ -75,51 +67,52 @@ function Weed({
   };
 
   return (
-    <span
-      className={`weed w${slot}${tug ? ' tugging' : ''}${tugs > 0 ? ' loosening' : ''}`}
-      role="button"
-      tabIndex={0}
-      aria-label={status ? `Weed. ${status}` : 'Weed. Press Enter to pull.'}
-      title="Drag to pull this weed (or focus it and press Enter)"
-      style={tug ? { ['--tx' as string]: `${tug.x}px`, ['--ty' as string]: `${tug.y}px` } : undefined}
-      onClick={(e) => e.stopPropagation()}
-      onKeyDown={(e) => {
-        if (e.key !== 'Enter' && e.key !== ' ') return;
-        e.preventDefault();
-        e.stopPropagation();
-        if (!e.repeat) keyTug();
-      }}
-      onPointerDown={(e) => {
-        if (e.button !== 0) return;
-        e.stopPropagation();
-        e.preventDefault();
-        e.currentTarget.setPointerCapture(e.pointerId);
-        drag.current = { x: e.clientX, y: e.clientY, id: e.pointerId };
-        setTug({ x: 0, y: 0 });
-      }}
-      onPointerMove={(e) => {
-        const d = drag.current;
-        if (d?.id !== e.pointerId) return;
-        const dx = e.clientX - d.x;
-        const dy = e.clientY - d.y;
-        const dist = Math.hypot(dx, dy);
-        if (dist >= PULL_DISTANCE) {
-          drag.current = null;
-          onPull(false);
-          return;
-        }
-        const k = Math.min(0.6, MAX_TUG / PULL_DISTANCE);
-        setTug({ x: dx * k, y: dy * k });
-      }}
-      onPointerUp={release}
-      onPointerCancel={release}
-    >
-      <span key={wiggles} className={`emoji${wiggles ? ' wiggle' : ''}`}>🌾</span>
-      {status && (
-        <span className="weed-bubble" aria-hidden>
-          {status}
+    // The bubble sits beside the button, not inside it: a button's contents are flattened for screen readers.
+    <span className={`weed-spot w${slot}`}>
+      <span
+        className={`weed${tug ? ' tugging' : ''}${tugs > 0 ? ' loosening' : ''}`}
+        role="button"
+        tabIndex={0}
+        aria-label="Weed. Press Enter to pull."
+        title="Drag to pull this weed (or focus it and press Enter)"
+        style={tug ? { ['--tx' as string]: `${tug.x}px`, ['--ty' as string]: `${tug.y}px` } : undefined}
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => {
+          if (e.key !== 'Enter' && e.key !== ' ') return;
+          e.preventDefault();
+          e.stopPropagation();
+          if (!e.repeat) keyTug();
+        }}
+        onPointerDown={(e) => {
+          if (e.button !== 0) return;
+          e.stopPropagation();
+          e.preventDefault();
+          e.currentTarget.setPointerCapture(e.pointerId);
+          drag.current = { x: e.clientX, y: e.clientY, id: e.pointerId };
+          setTug({ x: 0, y: 0 });
+        }}
+        onPointerMove={(e) => {
+          const d = drag.current;
+          if (d?.id !== e.pointerId) return;
+          const dx = e.clientX - d.x;
+          const dy = e.clientY - d.y;
+          const dist = Math.hypot(dx, dy);
+          if (dist >= PULL_DISTANCE) {
+            drag.current = null;
+            onPull(false);
+            return;
+          }
+          const k = Math.min(0.6, MAX_TUG / PULL_DISTANCE);
+          setTug({ x: dx * k, y: dy * k });
+        }}
+        onPointerUp={release}
+        onPointerCancel={release}
+      >
+        <span key={wiggles} className={`emoji${wiggles ? ' wiggle' : ''}`} aria-hidden>
+          🌾
         </span>
-      )}
+      </span>
+      {status && <Bubble text={status} />}
     </span>
   );
 }
@@ -147,14 +140,12 @@ function PlotTile({
   now,
   onClick,
   onPullWeed,
-  announce,
 }: {
   plot: Plot;
   selected: boolean;
   now: number;
   onClick: () => void;
   onPullWeed: () => void;
-  announce: (msg: string) => void;
 }) {
   const plant = plot.plant;
   const stage = plant ? stageOf(plant) : null;
@@ -168,10 +159,9 @@ function PlotTile({
     weeds.remove(slot);
     const key = Date.now() + Math.random();
     setUprooted((u) => [...u, { slot, key }]);
-    window.setTimeout(() => setUprooted((u) => u.filter((x) => x.key !== key)), 900);
+    window.setTimeout(() => setUprooted((u) => u.filter((x) => x.key !== key)), 1300);
     onPullWeed();
     if (byKeyboard) {
-      announce('Weed pulled out! +1 compost.');
       // The focused weed is gone; keep keyboard focus on this plot (next weed, else the plot itself).
       window.setTimeout(() => {
         const next = wrap.current?.querySelector<HTMLElement>('.weed[tabindex]') ?? wrap.current?.querySelector<HTMLElement>('.plot');
@@ -200,13 +190,15 @@ function PlotTile({
       </button>
       {/* Weeds sit over the plot rather than inside the button so they can be grabbed, dragged and focused. */}
       {weeds.slots.map((slot) => (
-        <Weed key={slot} slot={slot} onPull={(byKeyboard) => pull(slot, byKeyboard)} announce={announce} />
+        <Weed key={slot} slot={slot} onPull={(byKeyboard) => pull(slot, byKeyboard)} />
       ))}
       {uprooted.map((u) => (
-        <span key={u.key} className={`weed w${u.slot} uprooted`} aria-hidden>
-          <span className="emoji">🌾</span>
-          <span className="dirt" />
-          <span className="weed-bubble done">Pulled out!</span>
+        <span key={u.key} className={`weed-spot w${u.slot} uprooted`}>
+          <span className="weed" aria-hidden>
+            <span className="emoji">🌾</span>
+            <span className="dirt" />
+          </span>
+          <Bubble text="Pulled out! +1 compost" tone="good" />
         </span>
       ))}
     </div>
@@ -274,9 +266,6 @@ export function Garden({ state, dispatch }: { state: GameState; dispatch: (a: Ac
   const [tool, setTool] = useState<Tool>('tend');
   const [seed, setSeed] = useState<string | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
-  // Screen-reader updates for keyboard weeding. `n` re-renders the node so repeated messages are re-read.
-  const [announcement, setAnnouncement] = useState({ text: '', n: 0 });
-  const announce = (text: string) => setAnnouncement((a) => ({ text, n: a.n + 1 }));
   const now = state.lastTick;
 
   const seedList = PLANTS.filter((p) => (state.seeds[p.id] ?? 0) > 0);
@@ -314,12 +303,8 @@ export function Garden({ state, dispatch }: { state: GameState; dispatch: (a: Ac
                 setSelected(plot.id);
                 dispatch({ type: 'pullWeed', plotId: plot.id, now: Date.now() });
               }}
-              announce={announce}
             />
           ))}
-        </div>
-        <div className="sr-only" aria-live="polite">
-          <span key={announcement.n}>{announcement.text}</span>
         </div>
       </section>
 

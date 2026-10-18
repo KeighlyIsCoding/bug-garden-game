@@ -109,9 +109,12 @@ input, select { font: inherit; color: inherit; }
 .plot-wrap { position: relative; }
 .plot-wrap > .plot { display: block; width: 100%; }
 /* Weeds are big grabbable targets layered over the plot: press and drag to pull. */
+.weed-spot { position: absolute; z-index: 2; width: clamp(40px, 32%, 64px); aspect-ratio: 1; }
+.weed-spot.w0 { left: 3%; top: 3%; }
+.weed-spot.w1 { right: 3%; top: 6%; }
+.weed-spot.w2 { right: 6%; bottom: 12%; }
 .weed {
-  position: absolute; z-index: 2; display: flex; align-items: center; justify-content: center;
-  width: clamp(40px, 32%, 64px); aspect-ratio: 1; border-radius: 50%;
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; border-radius: 50%;
   font-size: clamp(28px, 4.6vw, 44px); line-height: 1;
   cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none;
   transform: translate(var(--tx, 0px), var(--ty, 0px));
@@ -121,30 +124,31 @@ input, select { font: inherit; color: inherit; }
 .weed:hover .emoji { transform: scale(1.1) rotate(-4deg); }
 .weed:focus-visible { outline: 3px solid var(--gold); outline-offset: 0; background: radial-gradient(rgba(255,255,255,0.35), transparent 70%); }
 .weed.loosening .emoji { transform: translateY(-4px) scale(1.06, 1.14); }
-.weed-bubble {
-  position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); z-index: 3;
-  white-space: nowrap; pointer-events: none;
-  background: #fffdf6; border: 2px solid #7a5232; border-radius: 999px; padding: 2px 8px;
-  font-size: 12px; font-weight: 800; color: #6a4528; box-shadow: 0 2px 0 rgba(0,0,0,0.15);
-  animation: bubble-in 0.2s ease-out;
-}
-/* Keep bubbles inside the plot: corner weeds anchor their bubble to the inner side. */
-.weed.w0 .weed-bubble { left: 0; transform: none; }
-.weed.w1 .weed-bubble, .weed.w2 .weed-bubble { left: auto; right: 0; transform: none; }
-.weed-bubble.done { background: #e7f3dc; border-color: var(--leaf); color: #2f6b1f; animation: bubble-in 0.2s ease-out, bubble-out 0.4s 0.5s ease-in forwards; }
-@keyframes bubble-in { from { opacity: 0; translate: 0 6px; } }
-@keyframes bubble-out { to { opacity: 0; translate: 0 -8px; } }
-.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .weed.tugging { cursor: grabbing; }
 .weed.tugging .emoji { transform: scale(1.12, 1.28); }
 .weed .emoji.wiggle { animation: weed-wiggle 0.35s ease-in-out; }
 @keyframes weed-wiggle { 25% { rotate: -12deg; } 75% { rotate: 12deg; } }
-.weed.w0 { left: 3%; top: 3%; }
-.weed.w1 { right: 3%; top: 6%; }
-.weed.w1 .emoji { scale: -1 1; }
-.weed.w2 { right: 6%; bottom: 12%; }
-.weed.uprooted { pointer-events: none; }
-.weed.uprooted .emoji { animation: weed-uproot 0.7s ease-out forwards; }
+.weed-spot.w1 .emoji { scale: -1 1; }
+.weed-spot.uprooted { pointer-events: none; }
+.weed-spot.uprooted .weed { cursor: default; }
+.weed-spot.uprooted .emoji { animation: weed-uproot 0.7s ease-out forwards; }
+
+/* Speech bubble (see Bubble.tsx). Stays invisible while empty; it fills in a moment after mounting. */
+.bubble {
+  position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); z-index: 3;
+  white-space: nowrap; pointer-events: none;
+  background: #fffdf6; border: 2px solid #7a5232; border-radius: 999px; padding: 2px 8px;
+  font-size: 12px; font-weight: 800; color: #6a4528; box-shadow: 0 2px 0 rgba(0,0,0,0.15);
+}
+.bubble:empty { opacity: 0; }
+.bubble:not(:empty) { animation: bubble-in 0.2s ease-out; }
+.bubble-good { background: #e7f3dc; border-color: var(--leaf); color: #2f6b1f; }
+.bubble-good:not(:empty) { animation: bubble-in 0.2s ease-out, bubble-out 0.4s 0.6s ease-in forwards; }
+@keyframes bubble-in { from { opacity: 0; translate: 0 6px; } }
+@keyframes bubble-out { to { opacity: 0; translate: 0 -8px; } }
+/* Keep bubbles inside the plot: corner weeds anchor their bubble to the inner side. */
+.weed-spot.w0 .bubble { left: 0; transform: none; }
+.weed-spot.w1 .bubble, .weed-spot.w2 .bubble { left: auto; right: 0; transform: none; }
 @keyframes weed-uproot {
   0% { transform: translateY(0) scale(1.12, 1.28); opacity: 1; }
   35% { transform: translateY(-34px) rotate(-18deg); opacity: 1; }
