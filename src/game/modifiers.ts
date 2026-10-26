@@ -2,7 +2,7 @@ import { ACHIEVEMENT_BONUS } from './achievements';
 import { bugdexBonuses } from './bonuses';
 import type { Quality } from './plants';
 import type { GameState } from './types';
-import { COMPOST_PER_FERTILIZER, OFFLINE_BASE_SECONDS, TROWEL_SEED_CHANCE } from './tuning';
+import { COMPOST_PER_FERTILIZER, GOLDEN_SEED_BONUS, OFFLINE_BASE_SECONDS, TROWEL_SEED_CHANCE } from './tuning';
 import { level } from './upgrades';
 
 /**
@@ -27,6 +27,8 @@ export interface Modifiers {
   gloveReach: number;
   /** Side of the square the clippers cover; 0 = no clippers. */
   clipReach: number;
+  /** Seconds between beetle patrol rounds; Infinity = no patrol. */
+  patrolInterval: number;
   canSpray: boolean;
   /** Best quality a harvest can reach. */
   qualityCap: Quality;
@@ -56,12 +58,15 @@ const PUMP_INTERVAL = [null, 600, 300, 120, 45, 0];
 const BARROW_CAPACITY = [0, 40, 120, 400];
 const BARROW_INTERVAL = [Infinity, 30, 15, 6];
 const STAND_RATE = [0, 0.5, 1.5, 4];
+const PATROL_INTERVAL = [Infinity, 120, 60];
 
-type ModSource = Pick<GameState, 'upgrades'> & Partial<Pick<GameState, 'collection' | 'achievements'>>;
+type ModSource = Pick<GameState, 'upgrades'> & Partial<Pick<GameState, 'collection' | 'achievements' | 'season'>>;
 
 export function modifiers(s: ModSource): Modifiers {
   const dex = bugdexBonuses(s.collection);
   const achieved = (s.achievements?.length ?? 0) * ACHIEVEMENT_BONUS;
+  const golden = (s.season?.goldenSeeds ?? 0) * GOLDEN_SEED_BONUS;
+  const longNap = s.season?.perks.includes('long-nap') ? 4 * 3600 : 0;
   return {
     waterReach: 1 + level(s, 'can'),
     harvestReach: 1 + level(s, 'basket'),
@@ -72,20 +77,21 @@ export function modifiers(s: ModSource): Modifiers {
     sellMult: (1 + 0.25 * level(s, 'reputation')) * (1 + dex.sellPrice),
     gloveReach: level(s, 'glove'),
     clipReach: level(s, 'clippers'),
+    patrolInterval: PATROL_INTERVAL[level(s, 'patrol')] ?? Infinity,
     canSpray: level(s, 'sprayer') > 0,
     qualityCap: level(s, 'heirloom') > 0 ? 'heirloom' : level(s, 'prize') > 0 ? 'prize' : 'perfect',
     digSeedChance: level(s, 'trowel') > 0 ? TROWEL_SEED_CHANCE : 0,
     compostPerFertilizer: level(s, 'tumbler') > 0 ? 2 : COMPOST_PER_FERTILIZER,
     autoTumble: level(s, 'tumbler') > 1,
-    growthMult: 1 + dex.growth,
-    yieldMult: (1 + dex.yield) * (1 + achieved),
+    growthMult: (1 + dex.growth) * (1 + golden),
+    yieldMult: (1 + dex.yield) * (1 + achieved) * (1 + golden),
     weedIntervalMult: 1 + dex.weedSlow,
     moistureMult: 1 + dex.moisture,
     vigorDecayMult: 1 / (1 + dex.vigorKeep),
     compostBonus: dex.compost,
     fertilizerMult: 1 + dex.fertilizer,
     seedDropMult: 1 + dex.seeds,
-    offlineSeconds: OFFLINE_BASE_SECONDS * (1 + dex.offline),
+    offlineSeconds: OFFLINE_BASE_SECONDS * (1 + dex.offline) + longNap,
     butterflyRate: 1 + dex.butterflies,
   };
 }

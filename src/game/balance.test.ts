@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { simulate, timeToPlots } from './balance';
+import { fruitBetween, lateGame, simulate, simulateSeasons, timeToPlots } from './balance';
 import { setRng } from './state';
 
 function seeded(seed: number) {
@@ -47,4 +47,36 @@ describe('balance: care matters', () => {
     const perPlot = (r: ReturnType<typeof simulate>) => fruitRate(r.fruitLog, HOUR / 2 - 600, HOUR / 2) / r.state.plots.length;
     expect(perPlot(neglected)).toBeLessThan(perPlot(tended) * 0.35);
   });
+});
+
+describe('balance: automation vs care', () => {
+  /**
+   * The idle payoff. A fully automated late garden (no hand care, a check-in every 10 minutes to tip
+   * the barrow) should settle at 30–60% of a perfectly tended one: automation clearly pays, and care
+   * (weeding, soaking, fertilizer, Prize/Heirloom) still more than doubles the harvest.
+   */
+  it('a fully automated garden makes 30–60% of a perfectly tended one', () => {
+    setRng(seeded(3));
+    const tended = fruitBetween({ every: 5, tends: true }, lateGame(), HOUR / 2, HOUR);
+    setRng(seeded(3));
+    const automated = fruitBetween({ every: 600, tends: false }, lateGame(), HOUR / 2, HOUR);
+    const ratio = automated / tended;
+    expect(ratio).toBeGreaterThan(0.3);
+    expect(ratio).toBeLessThan(0.6);
+  });
+});
+
+describe('balance: seasons', () => {
+  /**
+   * The long game. A strong player resets when a season would double their Golden Seeds; each season
+   * should reach further than the last, and the full 48-plot garden should take most of a (long) day.
+   */
+  it('reaches the full garden over several seasons, in 8–18 hours', () => {
+    const r = simulateSeasons({ every: 5, duration: 18 * HOUR, tends: true });
+    expect(r.firstFullGarden).toBeGreaterThan(8 * HOUR);
+    expect(r.firstFullGarden).toBeLessThan(18 * HOUR);
+    expect(r.seasons.length).toBeGreaterThanOrEqual(3);
+    const gains = r.seasons.map((x) => x.gained);
+    expect(gains[gains.length - 1]).toBeGreaterThan(gains[0]);
+  }, 120_000);
 });

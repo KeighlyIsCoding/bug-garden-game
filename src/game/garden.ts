@@ -22,6 +22,7 @@ import {
   VIGOR_FLOOR,
   WEED_INTERVAL,
   WEED_PENALTY,
+  WEEDY_CARE,
   WILD_SEED_CHANCE,
   landPrice,
 } from './tuning';
@@ -151,7 +152,7 @@ export function stepPlots(plots: Plot[], dt: number, now: number, alwaysWet?: Se
         ...plant,
         growth: Math.min(1, plant.growth + rate * dt),
         careTotal: plant.careTotal + dt,
-        careGood: plant.careGood + (good ? dt : 0),
+        careGood: plant.careGood + (good ? dt : moisture > 0 ? dt * WEEDY_CARE : 0),
       };
     }
     moisture = alwaysWet?.has(plot.y) ? 1 : Math.max(0, moisture - dt / (MOISTURE_SECONDS * m.moistureMult));

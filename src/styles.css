@@ -472,3 +472,11 @@ input, select { font: inherit; color: inherit; }
 .achievements li.done { opacity: 1; border-color: var(--leaf); background: #f3f8ea; }
 .achievements .emoji { font-size: 24px; }
 @media (max-width: 600px) { .tab { font-size: 10.5px; } }
+
+/* ---------- seasons ---------- */
+.season { background: linear-gradient(#fffaf0, #fdf1d6); border-color: #e8c66a; }
+.season-end { justify-content: space-between; flex-wrap: wrap; gap: 10px; margin: 8px 0 4px; }
+.perks { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 8px; }
+.perks li { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+.perks li.done { border-color: var(--leaf); background: #f3f8ea; }
+.perks .emoji { font-size: 22px; }

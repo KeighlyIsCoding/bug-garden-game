@@ -22,7 +22,12 @@ export const DRY_GROWTH = 0.15;
 export const WEED_INTERVAL = 80;
 export const MAX_WEEDS = 3;
 /** Each weed slows growth by this much. */
-export const WEED_PENALTY = 0.25;
+export const WEED_PENALTY = 0.15;
+/**
+ * Care credit for a plot that's watered but has weeds (a watered, weed-free plot earns full credit;
+ * a dry one earns none). Enough for Fine fruit, never Perfect: top quality needs weeding.
+ */
+export const WEEDY_CARE = 0.65;
 export const WILD_SEED_CHANCE = 0.08;
 /** Hand-watering soaks a plot: this much faster growth for this long. */
 export const SOAK_SECONDS = 60;
@@ -74,6 +79,14 @@ export const CAPSULE_COST_STEP = 10;
 export const capsuleCost = (speciesOwned: number) => 1 + Math.floor(speciesOwned / CAPSULE_COST_STEP);
 export const NEW_BUG_COINS = [5, 10, 20, 40, 80, 150];
 export const RELEASE_COINS = [2, 4, 8, 16, 32, 60];
+
+// ---------- seasons ----------
+/** You can end a season once the garden reaches this many plots. */
+export const SEASON_MIN_PLOTS = 24;
+/** Golden Seeds for a season: floor(sqrt(coins earned this season / this)). */
+export const GOLDEN_SEED_DIVISOR = 400;
+/** Each unspent Golden Seed adds this much to growth and to fruit yield. */
+export const GOLDEN_SEED_BONUS = 0.05;
 
 // ---------- time ----------
 /** How long the garden keeps growing while the game is closed (Stick insects in the Bugdex add to this). */
