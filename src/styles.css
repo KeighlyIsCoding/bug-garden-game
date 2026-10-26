@@ -85,7 +85,21 @@ input, select { font: inherit; color: inherit; }
 /* ---------- garden ---------- */
 .garden-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 14px; align-items: start; }
 .garden-panel { background: linear-gradient(#fffaf0, #f3ead0); }
-.plots { display: grid; grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr)); gap: 12px; }
+.plots { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
+/* Land that isn't yours yet: the next plot is for sale, the rest is locked. */
+.land { aspect-ratio: 1; border-radius: 16px; }
+.land.locked { border: 2px dashed rgba(122, 82, 50, 0.25); background: rgba(122, 82, 50, 0.05); }
+.land.for-sale {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 4px;
+  border: 2px dashed var(--leaf); background: #f3f8ea; color: #2f6b1f; font-weight: 800; font-size: 12px; line-height: 1.15; text-align: center;
+}
+.land.for-sale .emoji { font-size: 20px; }
+.land.for-sale .price { font-size: 11px; }
+.land.for-sale:not(:disabled):hover { background: #e7f3dc; transform: translateY(-2px); }
+.land.for-sale:disabled { opacity: 0.6; cursor: not-allowed; }
+.plot-actions { margin-top: 10px; flex-wrap: wrap; }
+.bubble-anchor { position: relative; display: inline-block; }
+.btn.armed { background: #fde8e5; border-color: #b8433a; }
 .plot {
   position: relative; aspect-ratio: 1; border-radius: 16px; border: 3px solid #7a5232; overflow: hidden; padding: 0;
   background: var(--soil-dry); box-shadow: inset 0 -6px 0 rgba(0,0,0,0.12), 0 3px 0 #6a4528; transition: transform 0.08s;
@@ -107,15 +121,15 @@ input, select { font: inherit; color: inherit; }
 
 .moisture { position: absolute; left: 4px; bottom: 4px; width: 5px; border-radius: 3px; background: #6ec6ff; max-height: calc(100% - 8px); transition: height 1s linear; }
 .plot-wrap { position: relative; }
-.plot-wrap > .plot { display: block; width: 100%; }
+.plot-wrap > .plot { display: block; width: 100%; container-type: inline-size; }
 /* Weeds are big grabbable targets layered over the plot: press and drag to pull. */
-.weed-spot { position: absolute; z-index: 2; width: clamp(40px, 32%, 64px); aspect-ratio: 1; }
+.weed-spot { position: absolute; z-index: 2; width: clamp(28px, 46%, 64px); aspect-ratio: 1; container-type: inline-size; }
 .weed-spot.w0 { left: 3%; top: 3%; }
 .weed-spot.w1 { right: 3%; top: 6%; }
 .weed-spot.w2 { right: 6%; bottom: 12%; }
 .weed {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; border-radius: 50%;
-  font-size: clamp(28px, 4.6vw, 44px); line-height: 1;
+  font-size: 70cqi; line-height: 1;
   cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none;
   transform: translate(var(--tx, 0px), var(--ty, 0px));
 }
@@ -162,21 +176,24 @@ input, select { font: inherit; color: inherit; }
   from { transform: translate(-50%, 0) scale(0.6); opacity: 1; }
   to { transform: translate(-50%, -10px) scale(1.6); opacity: 0; }
 }
-.badge-fert { position: absolute; right: 6px; bottom: 14px; font-size: 18px; animation: twinkle 1.2s ease-in-out infinite; }
+.badge-fert { position: absolute; right: 6px; bottom: 14px; font-size: clamp(12px, 17cqi, 18px); animation: twinkle 1.2s ease-in-out infinite; }
 @keyframes twinkle { 50% { opacity: 0.4; transform: scale(0.85); } }
-.badge-dry { position: absolute; top: 6px; left: 50%; transform: translateX(-50%); background: rgba(255,255,255,0.85); border-radius: 999px; padding: 0 8px; font-size: 11px; font-weight: 700; color: #b8433a; }
+.badge-dry { position: absolute; top: 6px; left: 50%; transform: translateX(-50%); background: rgba(255,255,255,0.85); border-radius: 999px; padding: 0 8px; font-size: clamp(8px, 10cqi, 11px); font-weight: 700; color: #b8433a; }
 .growbar { position: absolute; left: 14px; right: 8px; bottom: 6px; height: 6px; background: rgba(0,0,0,0.25); border-radius: 3px; overflow: hidden; }
 .growbar span { display: block; height: 100%; background: #9be15d; transition: width 1s linear; }
 .plot.ripe .growbar span { background: var(--gold); }
 
 .sprite { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -55%); display: block; }
-.sprite-seed { font-size: clamp(16px, 3vw, 26px); transform: translate(-50%, -30%); }
-.sprite-sprout { font-size: clamp(28px, 5vw, 44px); }
+.sprite-seed { font-size: 24cqi; transform: translate(-50%, -30%); }
+.sprite-sprout { font-size: 40cqi; }
 .sprite-flowering, .sprite-ripe { width: 80%; height: 80%; }
-.sprite .foliage { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: clamp(40px, 7vw, 72px); }
-.sprite .blossom { position: absolute; font-size: clamp(14px, 2.2vw, 20px); }
+.sprite .foliage { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 62cqi; }
+.sprite .blossom { position: absolute; font-size: 18cqi; }
 .blossom.b1 { left: 22%; top: 22%; }
 .blossom.b2 { right: 20%; top: 40%; }
+/* Fruit icons render at a fixed px size; scale them with the plot instead. */
+.sprite .fruit > .emoji { font-size: 19cqi !important; }
+.sprite .fruit > svg { width: 21cqi; height: 21cqi; }
 .sprite .fruit { position: absolute; filter: drop-shadow(0 2px 1px rgba(0,0,0,0.3)); animation: bob 2.4s ease-in-out infinite; }
 .fruit.f1 { left: 18%; top: 28%; }
 .fruit.f2 { right: 16%; top: 22%; animation-delay: 0.4s; }
@@ -369,7 +386,10 @@ input, select { font: inherit; color: inherit; }
   .stat { padding: 3px 9px; font-size: 13px; }
   .tab { flex: 1; justify-content: center; padding: 7px 4px; font-size: 13px; gap: 3px; }
   .tab .dot { position: absolute; top: -6px; right: -2px; }
-  .plots { gap: 8px; grid-template-columns: repeat(min(var(--cols, 3), 3), minmax(0, 1fr)); }
+  .plots { gap: 5px; }
+  .plot, .land { border-radius: 10px; }
+  .plot { border-width: 2px; }
+  .land.for-sale .emoji, .land.for-sale > span:nth-child(2) { display: none; }
   .modal-body { grid-template-columns: 1fr; }
   .modal-body .bug-img.lg { aspect-ratio: 4 / 3; }
   .dex-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
@@ -381,3 +401,6 @@ input, select { font: inherit; color: inherit; }
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition: none !important; }
 }
 .sci-title { font-style: italic; }
+
+.basket-item.short { opacity: 0.6; }
+.center { text-align: center; }

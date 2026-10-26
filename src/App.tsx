@@ -5,6 +5,7 @@ import { Bugdex } from './components/Bugdex';
 import { Garden } from './components/Garden';
 import { Market } from './components/Market';
 import { Summon } from './components/Summon';
+import { formatNum } from './format';
 import { useGame } from './useGame';
 
 type Tab = 'garden' | 'summon' | 'dex' | 'market';
@@ -32,9 +33,9 @@ export default function App() {
           <span className="emoji">🐞</span> Bug Garden
         </h1>
         <div className="stats">
-          <span className="stat" title="Coins">🪙 {state.coins}</span>
+          <span className="stat" title={`${state.coins} coins`}>🪙 {formatNum(state.coins)}</span>
           <span className="stat" title="Fertilizer">🧪 {state.fertilizer}</span>
-          <span className="stat" title="Compost">🍂 {state.compost}</span>
+          <span className="stat" title="Compost">🍂 {formatNum(state.compost)}</span>
           <span className="stat" title="Species discovered">
             📖 {owned}/{BUGS.length}
           </span>

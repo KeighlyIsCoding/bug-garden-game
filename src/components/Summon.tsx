@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { BUG_BY_ID, ORDER_INFO, TIERS, TIER_COLORS, type Tier } from '../game/bugs';
 import { PITY_LIMIT, luckFor, poolFor, tierOdds } from '../game/gacha';
 import { PLANTS, QUALITY_LABEL, parseFruitKey, type Quality } from '../game/plants';
-import type { Action, GameState } from '../game/state';
+import { CAPSULE_COST_STEP, capsuleCost, type Action, type GameState } from '../game/state';
 import { BugImage, BugName, RarityBadge, statusText } from './BugBits';
 import { FruitIcon } from './Icons';
 
@@ -65,9 +65,11 @@ export function Summon({
 
   const last = state.lastSummon;
   const lastBug = last ? BUG_BY_ID[last.bugId] : null;
+  const cost = capsuleCost(Object.keys(state.collection).length);
+  const canAfford = !!current && current.count >= cost;
 
   const doSummon = (fruitKey: string | null | undefined) => {
-    if (!fruitKey || !(state.fruits[fruitKey] > 0) || phase === 'cranking' || phase === 'dropping') return;
+    if (!fruitKey || !((state.fruits[fruitKey] ?? 0) >= cost) || phase === 'cranking' || phase === 'dropping') return;
     setSelectedKey(fruitKey);
     dispatch({ type: 'summon', fruitKey, now: Date.now() });
     timers.current.forEach(clearTimeout);
@@ -82,7 +84,7 @@ export function Summon({
     ];
   };
 
-  const againLeft = last ? (state.fruits[last.fruitKey] ?? 0) : 0;
+  const againLeft = last ? Math.floor((state.fruits[last.fruitKey] ?? 0) / cost) : 0;
   const capsuleColor = last ? TIER_COLORS[last.tier] : '#ccc';
 
   return (
@@ -133,10 +135,18 @@ export function Summon({
         </div>
 
         <div className="row center">
-          <button className="btn primary big" disabled={!current || phase === 'cranking' || phase === 'dropping'} onClick={() => doSummon(current?.key)}>
-            {current ? `Summon with ${QUALITY_LABEL[current.parsed.quality].toLowerCase()} ${current.parsed.plant.fruitName.toLowerCase()}` : 'No fruit — go harvest!'}
+          <button className="btn primary big" disabled={!canAfford || phase === 'cranking' || phase === 'dropping'} onClick={() => doSummon(current?.key)}>
+            {!current
+              ? 'No fruit — go harvest!'
+              : canAfford
+                ? `Summon with ${cost > 1 ? `${cost} ` : ''}${QUALITY_LABEL[current.parsed.quality].toLowerCase()} ${(cost > 1 ? current.parsed.plant.fruitPlural : current.parsed.plant.fruitName).toLowerCase()}`
+                : `Need ${cost} ${current.parsed.plant.fruitPlural.toLowerCase()} (have ${current.count})`}
           </button>
         </div>
+        <p className="center small muted">
+          Each capsule costs <strong>{cost}</strong> of the same fruit. The machine gets hungrier as your Bugdex grows (+1 every{' '}
+          {CAPSULE_COST_STEP} species).
+        </p>
         <label className="row center small muted toggle">
           <input type="checkbox" checked={fast} onChange={(e) => setFast(e.target.checked)} /> Skip animation
         </label>
@@ -150,7 +160,12 @@ export function Summon({
           ) : (
             <div className="basket">
               {basket.map(({ key: k, count, parsed }) => (
-                <button key={k} className={`basket-item ${k === key ? 'active' : ''}`} onClick={() => setSelectedKey(k)}>
+                <button
+                  key={k}
+                  className={`basket-item ${k === key ? 'active' : ''} ${count < cost ? 'short' : ''}`}
+                  onClick={() => setSelectedKey(k)}
+                  title={count < cost ? `Need ${cost} for a capsule` : undefined}
+                >
                   <FruitIcon id={parsed.plant.id} size={26} />
                   <span className="basket-name">
                     {parsed.plant.fruitName}
