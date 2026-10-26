@@ -76,4 +76,23 @@ export const NEW_BUG_COINS = [5, 10, 20, 40, 80, 150];
 export const RELEASE_COINS = [2, 4, 8, 16, 32, 60];
 
 // ---------- time ----------
-export const MAX_OFFLINE_SECONDS = 2 * 60 * 60;
+/** How long the garden keeps growing while the game is closed (Stick insects in the Bugdex add to this). */
+export const OFFLINE_BASE_SECONDS = 8 * 60 * 60;
+/** Gaps longer than this are simulated in coarser steps, so returning after hours loads quickly. */
+export const COARSE_AFTER_SECONDS = 10 * 60;
+export const COARSE_STEP_SECONDS = 5;
+/** Show the "while you were away" summary after this long. */
+export const AWAY_SUMMARY_SECONDS = 10 * 60;
+
+// ---------- golden butterfly ----------
+/** Seconds between butterflies (random in this range; Lepidoptera in the Bugdex shorten it). */
+export const BUTTERFLY_MIN_SECONDS = 4 * 60;
+export const BUTTERFLY_MAX_SECONDS = 8 * 60;
+export const BUTTERFLY_FIRST_SECONDS = 90;
+/** How long one stays on screen. */
+export const BUTTERFLY_STAY_SECONDS = 10;
+/** Bloom: every growing plant jumps ahead by this much growth. */
+export const BLOOM_GROWTH = 0.15;
+/** Purse: this many seconds of the garden's income (at least PURSE_MIN coins). */
+export const PURSE_SECONDS = 120;
+export const PURSE_MIN = 25;

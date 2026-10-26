@@ -1,4 +1,4 @@
-import type { Modifiers } from './modifiers';
+import { modifiers, type Modifiers } from './modifiers';
 import { FRUIT_SELL_PRICE, PLANT_BY_ID, QUALITIES, QUALITY_SELL_MULT, QUALITY_YIELD, SEED_DROP_CHANCE, fruitKey, parseFruitKey, type Quality } from './plants';
 import {
   CUT_SECONDS,
@@ -26,6 +26,9 @@ import {
   landPrice,
 } from './tuning';
 import type { GameState, Plant, Plot, Tool } from './types';
+
+/** Modifiers with no upgrades or bonuses, for callers (and tests) that don't pass their own. */
+const BASE: Modifiers = modifiers({ upgrades: {} });
 import { addTo, notify, rng, roundChance, updatePlot, weightedSeed } from './util';
 
 // ---------- grid ----------
@@ -107,13 +110,13 @@ export function qualityFor(p: Plant, cap: Quality = 'perfect'): Quality {
 }
 
 /** Expected fruit from the next harvest, before random rounding. */
-export function expectedYield(p: Plant, cap: Quality = 'perfect'): number {
+export function expectedYield(p: Plant, m: Pick<Modifiers, 'qualityCap' | 'yieldMult'> = BASE): number {
   // Herbicide on a Normal crop can't drop a tier, so it halves the crop instead.
-  const sprayedNormal = p.herbicideThisCycle && careQuality(p, cap) === 'normal';
-  return QUALITY_YIELD[qualityFor(p, cap)] * p.vigor * (sprayedNormal ? 0.5 : 1);
+  const sprayedNormal = p.herbicideThisCycle && careQuality(p, m.qualityCap) === 'normal';
+  return QUALITY_YIELD[qualityFor(p, m.qualityCap)] * p.vigor * (sprayedNormal ? 0.5 : 1) * m.yieldMult;
 }
 
-export function growthRate(plot: Plot, now: number): number {
+export function growthRate(plot: Plot, now: number, m: Pick<Modifiers, 'growthMult'> = BASE): number {
   const p = plot.plant;
   if (!p || isRipe(p)) return 0;
   const def = PLANT_BY_ID[p.kind];
@@ -121,7 +124,7 @@ export function growthRate(plot: Plot, now: number): number {
   const weeds = 1 - WEED_PENALTY * plot.weeds;
   const fert = p.fertilizedUntil > now ? FERTILIZER_GROWTH : 1;
   const soak = plot.moisture > 0 && plot.soakedUntil > now ? SOAK_GROWTH : 1;
-  return (1 / def.growTime) * water * weeds * fert * soak;
+  return (1 / def.growTime) * water * weeds * fert * soak * m.growthMult;
 }
 
 export function stageOf(p: Plant): 'seed' | 'sprout' | 'flowering' | 'ripe' {
@@ -133,15 +136,16 @@ export function stageOf(p: Plant): 'seed' | 'sprout' | 'flowering' | 'ripe' {
 
 // ---------- simulation ----------
 /** `alwaysWet` rows are on round-the-clock irrigation and never dry out. */
-export function stepPlots(plots: Plot[], dt: number, now: number, alwaysWet?: Set<number>): Plot[] {
+export function stepPlots(plots: Plot[], dt: number, now: number, alwaysWet?: Set<number>, m: Modifiers = BASE): Plot[] {
   return plots.map((plot) => {
     let { moisture, weeds } = plot;
     const interval =
-      (WEED_INTERVAL * (plot.herbicideUntil > now ? HERBICIDE_WEED_SLOWDOWN : 1)) / (plot.cutUntil > now ? CUT_WEED_SPEED : 1);
+      (WEED_INTERVAL * m.weedIntervalMult * (plot.herbicideUntil > now ? HERBICIDE_WEED_SLOWDOWN : 1)) /
+      (plot.cutUntil > now ? CUT_WEED_SPEED : 1);
     if (weeds < MAX_WEEDS && rng() < dt / interval) weeds += 1;
     let plant = plot.plant;
     if (plant && !isRipe(plant)) {
-      const rate = growthRate({ ...plot, weeds }, now);
+      const rate = growthRate({ ...plot, weeds }, now, m);
       const good = moisture > 0 && weeds === 0;
       plant = {
         ...plant,
@@ -150,27 +154,35 @@ export function stepPlots(plots: Plot[], dt: number, now: number, alwaysWet?: Se
         careGood: plant.careGood + (good ? dt : 0),
       };
     }
-    moisture = alwaysWet?.has(plot.y) ? 1 : Math.max(0, moisture - dt / MOISTURE_SECONDS);
+    moisture = alwaysWet?.has(plot.y) ? 1 : Math.max(0, moisture - dt / (MOISTURE_SECONDS * m.moistureMult));
     return { ...plot, moisture, weeds, plant };
   });
 }
 
 // ---------- actions ----------
 /** Pick a ripe plant. Fruit goes to the basket, or into the wheelbarrow (quietly) when it is the barrow's round. */
-export function harvest(s: GameState, plot: Plot, into: 'basket' | 'barrow' = 'basket', cap: Quality = 'perfect'): GameState {
+export function harvest(s: GameState, plot: Plot, into: 'basket' | 'barrow' = 'basket', m: Modifiers = BASE): GameState {
   const plant = plot.plant!;
   const def = PLANT_BY_ID[plant.kind];
-  const quality = qualityFor(plant, cap);
-  const amount = roundChance(expectedYield(plant, cap));
+  const quality = qualityFor(plant, m.qualityCap);
+  const amount = roundChance(expectedYield(plant, m));
   const key = fruitKey(def.id, quality);
   let next: GameState =
     into === 'barrow' ? { ...s, barrow: addTo(s.barrow, key, amount) } : { ...s, fruits: addTo(s.fruits, key, amount) };
+  next = {
+    ...next,
+    stats: {
+      ...next.stats,
+      fruitHarvested: next.stats.fruitHarvested + amount,
+      heirlooms: next.stats.heirlooms + (quality === 'heirloom' ? amount : 0),
+    },
+  };
   const name = amount === 1 ? def.fruitName : def.fruitPlural;
   let msg =
     amount === 0
       ? `The ${def.plantName.toLowerCase()} gave nothing worth picking this time`
       : `Harvested ${amount} ${quality === 'normal' ? '' : quality + ' '}${name.toLowerCase()}`;
-  if (rng() < SEED_DROP_CHANCE[def.seedTier]) {
+  if (rng() < SEED_DROP_CHANCE[def.seedTier] * m.seedDropMult) {
     next = { ...next, seeds: addTo(next.seeds, def.id, 1) };
     msg += ' and a seed';
   }
@@ -178,7 +190,7 @@ export function harvest(s: GameState, plot: Plot, into: 'basket' | 'barrow' = 'b
   const regrown: Plant = {
     ...plant,
     growth: REGROW_FROM,
-    vigor: Math.max(VIGOR_FLOOR, plant.vigor - VIGOR_DECAY),
+    vigor: Math.max(VIGOR_FLOOR, plant.vigor - VIGOR_DECAY * m.vigorDecayMult),
     harvests: plant.harvests + 1,
     careGood: 0,
     careTotal: 0,
@@ -199,9 +211,26 @@ export function sellPrice(key: string, m: Pick<Modifiers, 'sellMult'>): number {
 
 export const countFruit = (rec: Record<string, number>) => Object.values(rec).reduce((a, b) => a + b, 0);
 
+/** Roughly what the garden earns per second if every crop is sold: used for the butterfly's purse. */
+export function incomeEstimate(s: GameState, m: Modifiers): number {
+  let perSecond = 0;
+  for (const plot of s.plots) {
+    const p = plot.plant;
+    if (!p) continue;
+    const def = PLANT_BY_ID[p.kind];
+    const cropSeconds = (def.growTime * (1 - REGROW_FROM)) / m.growthMult;
+    perSecond += (expectedYield(p, m) * sellPrice(fruitKey(def.id, qualityFor(p, m.qualityCap)), m)) / cropSeconds;
+  }
+  return perSecond;
+}
+
 /** Pulled weeds become compost, and now and then a seed turns up in the soil. */
-function compostWeeds(s: GameState, n: number): GameState {
-  let next = { ...s, compost: s.compost + n };
+function compostWeeds(s: GameState, n: number, m: Pick<Modifiers, 'compostBonus'>): GameState {
+  let next = {
+    ...s,
+    compost: s.compost + n + roundChance(n * m.compostBonus),
+    stats: { ...s.stats, weedsPulled: s.stats.weedsPulled + n },
+  };
   for (let i = 0; i < n; i++) {
     if (rng() >= WILD_SEED_CHANCE) continue;
     const found = weightedSeed();
@@ -212,18 +241,18 @@ function compostWeeds(s: GameState, n: number): GameState {
 }
 
 /** Weeds are pulled by hand (drag on a weed in the garden), not with a tool. */
-export function pullWeed(s: GameState, plotId: number): GameState {
+export function pullWeed(s: GameState, plotId: number, m: Modifiers = BASE): GameState {
   const plot = s.plots.find((p) => p.id === plotId);
   if (!plot || plot.weeds === 0) return s;
-  return compostWeeds(updatePlot(s, plotId, (p) => ({ ...p, weeds: p.weeds - 1 })), 1);
+  return compostWeeds(updatePlot(s, plotId, (p) => ({ ...p, weeds: p.weeds - 1 })), 1, m);
 }
 
 /** The glove pulls every weed in the given plots at once. */
-export function pullWeeds(s: GameState, plotIds: number[]): GameState {
+export function pullWeeds(s: GameState, plotIds: number[], m: Modifiers = BASE): GameState {
   const ids = new Set(plotIds);
   const n = s.plots.filter((p) => ids.has(p.id)).reduce((a, p) => a + p.weeds, 0);
   if (n === 0) return s;
-  return compostWeeds({ ...s, plots: s.plots.map((p) => (ids.has(p.id) ? { ...p, weeds: 0 } : p)) }, n);
+  return compostWeeds({ ...s, plots: s.plots.map((p) => (ids.has(p.id) ? { ...p, weeds: 0 } : p)) }, n, m);
 }
 
 export function digUp(s: GameState, plotId: number, seedChance = 0): GameState {
@@ -264,7 +293,7 @@ export function useTool(
   tool: Tool,
   seed: string | null | undefined,
   now: number,
-  m: Pick<Modifiers, 'waterReach' | 'harvestReach' | 'clipReach' | 'canSpray' | 'qualityCap'>,
+  m: Modifiers,
 ): GameState {
   const plot = s.plots.find((p) => p.id === plotId);
   if (!plot) return s;
@@ -315,7 +344,7 @@ export function useTool(
       if (s.fertilizer <= 0) return notify(s, 'Out of fertilizer. Make some from compost or buy it at the market.', 'warn');
       const next = updatePlot(s, plotId, (p) => ({
         ...p,
-        plant: { ...p.plant!, fertilizedUntil: now + FERTILIZER_SECONDS * 1000, fertilizedThisCycle: true },
+        plant: { ...p.plant!, fertilizedUntil: now + FERTILIZER_SECONDS * m.fertilizerMult * 1000, fertilizedThisCycle: true },
       }));
       return { ...next, fertilizer: next.fertilizer - 1 };
     }
@@ -324,7 +353,7 @@ export function useTool(
       const ripe = s.plots.filter((p) => cells.has(p.id) && p.plant && isRipe(p.plant));
       if (ripe.length === 0) return notify(s, m.harvestReach > 1 ? 'Nothing ripe in reach yet.' : 'Nothing ripe here yet.', 'info');
       let next = s;
-      for (const p of ripe) next = harvest(next, next.plots.find((q) => q.id === p.id)!, 'basket', m.qualityCap);
+      for (const p of ripe) next = harvest(next, next.plots.find((q) => q.id === p.id)!, 'basket', m);
       return next;
     }
     case 'plant': {

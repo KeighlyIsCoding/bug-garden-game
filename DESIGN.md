@@ -154,7 +154,9 @@ Each plot costs `80 × 1.2^(plots owned − 6)` coins. A plot holds at most one 
 | **Harvest** | Picks ripe fruit (see 3.3) from every ripe plot the basket reaches (1×1, up to 3×3). Plants are perennial: after a harvest they drop back to a sprout and regrow. Chance of a seed drop. |
 
 ### 4.3 Growth
-Growth runs in real time (1 s ticks) and is also simulated for time spent away (capped at 2 h).
+Growth runs in real time (1 s ticks) and is also simulated for time spent away (up to 8 h, longer with
+Stick insects in the Bugdex). After 10 minutes or more away, a **"While you were away"** summary shows coins
+earned, fruit the wheelbarrow picked, ripe plants and new weeds.
 Stages: **Seed → Sprout → Flowering → Ripe**. Growth time depends on the plant (50 s – 2.7 min),
 with rarer plants taking longer. After a harvest a plant regrows from 25% (a sprout), so later crops
 take 75% of the first one's time.
@@ -188,6 +190,33 @@ Hovering or focusing a plot outlines the square the current tool would reach.
 | Heirloom stock | 120K (needs the ribbon) | Unlocks Heirloom fruit |
 | Fruit stand | 600 / 5K / 30K | Auto-sells the qualities you tick in the Market, 0.5/1.5/4 fruit per second |
 | Market reputation | 400 × 4^n, 5 levels | +25% sell price per level |
+
+### 4.5 Idle layer
+- **Bugdex bonuses.** Every species owned adds +1% to a garden stat chosen by its order, and completing
+  an order adds +10%:
+
+  | Order | Stat |
+  |---|---|
+  | Hymenoptera | fruit per harvest |
+  | Coleoptera | weeds come back slower |
+  | Odonata | growth speed |
+  | Lepidoptera | golden butterflies come more often |
+  | Hemiptera | moisture lasts longer |
+  | Orthoptera | sell price |
+  | Phasmatodea | time the garden grows while you're away |
+  | Neuroptera | slower vigor loss |
+  | Diptera | extra compost from weeds |
+  | Blattodea | fertilizer lasts longer |
+  | Mantodea | wheelbarrow capacity |
+  | Ephemeroptera | seed drops |
+
+- **Golden butterfly.** Every 4–8 minutes of play a golden butterfly appears for 10 seconds. Click it or
+  press **B** for one of: *Bloom* (every growing plant +15% growth), *Rain* (water and soak every plot),
+  *Purse* (about 2 minutes of the garden's income), or *Seed gift* (2 uncommon-or-better seeds). It is
+  announced to screen readers. Butterflies only come while you're playing, never during time away.
+- **Achievements** (Journal tab): fruit harvested, plots owned, weeds pulled, species found, coins earned,
+  butterflies caught, Heirloom fruit. Each one adds +1% fruit yield for good.
+- The top bar shows **coins earned per second** over the last half-minute.
 
 ---
 
@@ -246,6 +275,7 @@ by seed tier (Common 60%, Uncommon 30%, Rare 10%).
 | **Bugdex**    | All species as cards (silhouettes for undiscovered), filter by order/rarity/owned, progress per order. Detail view with Wikipedia photo, extract, status, owned count, release button, link to article. |
 | **Shed**      | Upgrades by category (watering, weeding, harvesting, soil & quality, market) and drip lines. |
 | **Market**    | Buy seeds and fertilizer; sell fruit (and choose what the fruit stand sells); compost → fertilizer. |
+| **Journal**   | Bugdex bonuses by order, and achievements. |
 
 A top bar shows coins, fertilizer, compost and Bugdex progress on every screen.
 
