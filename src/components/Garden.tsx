@@ -4,6 +4,13 @@ import { ORDER_INFO } from '../game/bugs';
 import { cellId } from '../game/garden';
 import { PLANTS, PLANT_BY_ID, SEED_TIER_NAMES, QUALITY_LABEL } from '../game/plants';
 import {
+  SOAK_GROWTH,
+  SOAK_SECONDS,
+  areaCells,
+  countFruit,
+  level,
+  modifiers,
+  type Modifiers,
   DIG_CONFIRM_MS,
   GRID_COLS,
   MAX_PLOTS,
@@ -26,12 +33,34 @@ import {
 import { Bubble } from './Bubble';
 import { FruitIcon, PlantSprite } from './Icons';
 
-const TOOLS: { id: Tool; icon: string; label: string; hint: string }[] = [
-  { id: 'tend', icon: '✋', label: 'Tend', hint: 'Does whatever the plot needs most: harvest, plant or water. Drag weeds to pull them, or Tab to a weed and press Enter.' },
-  { id: 'water', icon: '💧', label: 'Water', hint: 'Refill moisture. Dry plants barely grow.' },
-  { id: 'fertilize', icon: '🧪', label: 'Fertilize', hint: 'Faster growth for 90s, and needed for Perfect fruit.' },
-  { id: 'harvest', icon: '🧺', label: 'Harvest', hint: 'Pick ripe fruit.' },
-];
+const square = (n: number) => (n > 1 ? ` in a ${n}×${n} square` : '');
+
+function toolHints(m: Modifiers): { id: Tool; icon: string; label: string; hint: string }[] {
+  return [
+    {
+      id: 'tend',
+      icon: '✋',
+      label: 'Tend',
+      hint: 'Does whatever the plot needs most: harvest, plant or water. Drag weeds to pull them, or Tab to a weed and press Enter.',
+    },
+    {
+      id: 'water',
+      icon: '💧',
+      label: 'Water',
+      hint: `Water${square(m.waterReach)}. Hand-watering soaks plots: +${Math.round((SOAK_GROWTH - 1) * 100)}% growth for ${SOAK_SECONDS}s. Dry plants barely grow.`,
+    },
+    { id: 'fertilize', icon: '🧪', label: 'Fertilize', hint: 'Faster growth for 90s, and needed for Perfect fruit.' },
+    { id: 'harvest', icon: '🧺', label: 'Harvest', hint: `Pick ripe fruit${square(m.harvestReach)}.` },
+  ];
+}
+
+/** The plots a tool would touch if used on `plot`, for the hover/focus preview. */
+function reachOf(tool: Tool, plot: Plot, m: Modifiers): number {
+  if (tool === 'water') return m.waterReach;
+  if (tool === 'harvest') return m.harvestReach;
+  if (tool === 'tend' && plot.plant) return isRipe(plot.plant) ? m.harvestReach : m.waterReach;
+  return 1;
+}
 
 function formatSecs(s: number) {
   if (!isFinite(s)) return '—';
@@ -51,7 +80,7 @@ const KEY_PULL_MESSAGES = ['Still stuck. Keep pulling!', 'It budged. Keep pullin
  * A single weed. Press and drag it a little to pull it out, or focus it and press Enter.
  * With the keyboard, a weed takes 1–4 tugs (random per weed) to come out.
  */
-function Weed({ slot, onPull }: { slot: number; onPull: (byKeyboard: boolean) => void }) {
+function Weed({ slot, onPull, onTap }: { slot: number; onPull: (byKeyboard: boolean) => void; onTap: () => void }) {
   const drag = useRef<{ x: number; y: number; id: number } | null>(null);
   const [tug, setTug] = useState<{ x: number; y: number } | null>(null);
   const [wiggles, setWiggles] = useState(0);
@@ -69,12 +98,15 @@ function Weed({ slot, onPull }: { slot: number; onPull: (byKeyboard: boolean) =>
   };
   const status = tugs > 0 ? KEY_PULL_MESSAGES[Math.min(tugs - 1, KEY_PULL_MESSAGES.length - 1)] : null;
 
-  const release = (e: ReactPointerEvent<HTMLSpanElement>) => {
+  const release = (e: ReactPointerEvent<HTMLSpanElement>, cancelled = false) => {
     if (drag.current?.id !== e.pointerId) return;
     drag.current = null;
     setTug(null);
-    // Let go before it came out: wiggle as a hint that it needs a pull.
+    // Let go before it came out: wiggle as a hint that it needs a pull...
     setWiggles((w) => w + 1);
+    // ...and treat it as a tap on the plot underneath (water, harvest...). The wiggle replaces the
+    // pressed element, so the browser never sends a click; handle the tap here instead.
+    if (!cancelled) onTap();
   };
 
   return (
@@ -120,7 +152,7 @@ function Weed({ slot, onPull }: { slot: number; onPull: (byKeyboard: boolean) =>
           setTug({ x: dx * k, y: dy * k });
         }}
         onPointerUp={release}
-        onPointerCancel={release}
+        onPointerCancel={(e) => release(e, true)}
       >
         <span key={wiggles} className={`emoji${wiggles ? ' wiggle' : ''}`} aria-hidden>
           🌾
@@ -154,17 +186,25 @@ function PlotTile({
   now,
   onClick,
   onPullWeed,
+  onPreview,
+  inReach,
+  irrigated,
 }: {
   plot: Plot;
   selected: boolean;
   now: number;
   onClick: () => void;
   onPullWeed: () => void;
+  /** Called with true when the plot is hovered or focused, false when left. */
+  onPreview: (on: boolean) => void;
+  inReach: boolean;
+  irrigated: boolean;
 }) {
   const plant = plot.plant;
   const stage = plant ? stageOf(plant) : null;
   const wet = plot.moisture > 0;
   const fertilized = plant && plant.fertilizedUntil > now;
+  const soaked = wet && plot.soakedUntil > now;
   const weeds = useWeedSlots(plot.weeds);
   const [uprooted, setUprooted] = useState<{ slot: number; key: number }[]>([]);
   const wrap = useRef<HTMLDivElement>(null);
@@ -185,11 +225,24 @@ function PlotTile({
   };
 
   return (
-    <div className="plot-wrap" ref={wrap}>
+    <div
+      className={`plot-wrap${inReach ? ' in-reach' : ''}`}
+      ref={wrap}
+      onMouseEnter={() => onPreview(true)}
+      onMouseLeave={() => onPreview(false)}
+      onFocus={() => onPreview(true)}
+      onBlur={() => onPreview(false)}
+    >
       <button
-        className={`plot ${wet ? 'wet' : 'dry'} ${selected ? 'selected' : ''} ${stage === 'ripe' ? 'ripe' : ''}`}
+        className={`plot ${wet ? 'wet' : 'dry'} ${selected ? 'selected' : ''} ${stage === 'ripe' ? 'ripe' : ''}${soaked ? ' soaked' : ''}${irrigated ? ' irrigated' : ''}`}
         onClick={onClick}
-        aria-label={plant ? `${PLANT_BY_ID[plant.kind].plantName}, ${stage}` : 'Empty plot'}
+        aria-label={[
+          plant ? `${PLANT_BY_ID[plant.kind].plantName}, ${stage}` : 'Empty plot',
+          soaked && 'soaked',
+          irrigated && 'irrigated',
+        ]
+          .filter(Boolean)
+          .join(', ')}
       >
         <span className="soil" style={{ opacity: 0.35 + plot.moisture * 0.65 }} />
         {plant && stage && <PlantSprite kind={plant.kind} stage={stage} />}
@@ -204,7 +257,7 @@ function PlotTile({
       </button>
       {/* Weeds sit over the plot rather than inside the button so they can be grabbed, dragged and focused. */}
       {weeds.slots.map((slot) => (
-        <Weed key={slot} slot={slot} onPull={(byKeyboard) => pull(slot, byKeyboard)} />
+        <Weed key={slot} slot={slot} onPull={(byKeyboard) => pull(slot, byKeyboard)} onTap={onClick} />
       ))}
       {uprooted.map((u) => (
         <span key={u.key} className={`weed-spot w${u.slot} uprooted`}>
@@ -216,6 +269,28 @@ function PlotTile({
         </span>
       ))}
     </div>
+  );
+}
+
+function BarrowPanel({ state, capacity, dispatch }: { state: GameState; capacity: number; dispatch: (a: Action) => void }) {
+  const n = countFruit(state.barrow);
+  const full = n >= capacity;
+  return (
+    <section className={`panel barrow${full ? ' full' : ''}`}>
+      <div className="panel-head">
+        <h3>🛒 Wheelbarrow</h3>
+        <span className="muted small">
+          {n}/{capacity}
+        </span>
+      </div>
+      <div className="meter" role="progressbar" aria-label="Wheelbarrow" aria-valuemin={0} aria-valuemax={capacity} aria-valuenow={n}>
+        <span style={{ width: `${Math.min(100, (n / capacity) * 100)}%` }} />
+      </div>
+      <p className="muted small">{full ? 'Full! It has stopped picking until you empty it.' : 'Picks ripe plants on its rounds.'}</p>
+      <button className="btn small primary" disabled={n === 0} onClick={() => dispatch({ type: 'emptyBarrow', now: Date.now() })}>
+        Tip {n} fruit into the basket
+      </button>
+    </section>
   );
 }
 
@@ -333,7 +408,12 @@ export function Garden({ state, dispatch }: { state: GameState; dispatch: (a: Ac
   const [tool, setTool] = useState<Tool>('tend');
   const [seed, setSeed] = useState<string | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
+  const [previewed, setPreviewed] = useState<number | null>(null);
   const now = state.lastTick;
+  const m = modifiers(state);
+  const TOOLS = toolHints(m);
+  const barrowLevel = level(state, 'barrow');
+  const ripeCount = state.plots.filter((p) => p.plant && isRipe(p.plant)).length;
 
   const seedList = PLANTS.filter((p) => (state.seeds[p.id] ?? 0) > 0);
   const activeSeed = seed && (state.seeds[seed] ?? 0) > 0 ? seed : null;
@@ -348,14 +428,27 @@ export function Garden({ state, dispatch }: { state: GameState; dispatch: (a: Ac
   const landCost = landPrice(state.plots.length);
   const rows = Math.max(...state.plots.map((p) => p.y + 1), land ? land.y + 1 : 0);
 
+  // Highlight the square the current tool would reach from the hovered or focused plot.
+  const previewPlot = previewed === null ? undefined : byId.get(previewed);
+  const reach = previewPlot ? reachOf(tool, previewPlot, m) : 1;
+  const inReach = new Set(previewPlot && reach > 1 ? areaCells(previewPlot.x, previewPlot.y, reach) : []);
+  const irrigated = new Set(state.irrigatedRows);
+
   return (
     <div className="garden-layout">
       <section className="panel garden-panel">
         <div className="panel-head">
           <h2>Your garden</h2>
-          <span className="muted small">
-            {state.plots.length}/{MAX_PLOTS} plots
-          </span>
+          <div className="row">
+            <span className="muted small">
+              {state.plots.length}/{MAX_PLOTS} plots
+            </span>
+            {barrowLevel > 0 && (
+              <button className="btn small" disabled={ripeCount === 0} onClick={() => dispatch({ type: 'harvestAll', now: Date.now() })}>
+                🧺 Harvest all{ripeCount > 0 ? ` (${ripeCount})` : ''}
+              </button>
+            )}
+          </div>
         </div>
         <div className="plots">
           {Array.from({ length: rows * GRID_COLS }, (_, i) => {
@@ -374,6 +467,9 @@ export function Garden({ state, dispatch }: { state: GameState; dispatch: (a: Ac
                     setSelected(plot.id);
                     dispatch({ type: 'pullWeed', plotId: plot.id, now: Date.now() });
                   }}
+                  onPreview={(on) => setPreviewed((cur) => (on ? plot.id : cur === plot.id ? null : cur))}
+                  inReach={inReach.has(plot.id)}
+                  irrigated={irrigated.has(plot.y)}
                 />
               );
             if (land && land.x === x && land.y === y)
@@ -398,6 +494,7 @@ export function Garden({ state, dispatch }: { state: GameState; dispatch: (a: Ac
       </section>
 
       <aside className="garden-side">
+        {barrowLevel > 0 && <BarrowPanel state={state} capacity={m.barrowCapacity} dispatch={dispatch} />}
         <section className="panel">
           <h3>Tools</h3>
           <div className="tools">
@@ -405,8 +502,8 @@ export function Garden({ state, dispatch }: { state: GameState; dispatch: (a: Ac
               <button
                 key={t.id}
                 className={`tool ${tool === t.id ? 'active' : ''}`}
+                aria-pressed={tool === t.id}
                 onClick={() => setTool(t.id)}
-                title={t.hint}
               >
                 <span className="emoji">{t.icon}</span>
                 <span>{t.label}</span>

@@ -69,7 +69,7 @@ export const PLANTS: PlantDef[] = [...WILD, ...ORDER_FRUITS].map((p) => {
 export const PLANT_BY_ID: Record<string, PlantDef> = Object.fromEntries(PLANTS.map((p) => [p.id, p]));
 
 export const SEED_PRICE: Record<SeedTier, number> = { 0: 5, 1: 12, 2: 30 };
-export const FRUIT_SELL_PRICE: Record<SeedTier, number> = { 0: 1, 1: 3, 2: 6 };
+export const FRUIT_SELL_PRICE: Record<SeedTier, number> = { 0: 3, 1: 8, 2: 16 };
 export const SEED_DROP_CHANCE: Record<SeedTier, number> = { 0: 0.6, 1: 0.4, 2: 0.2 };
 /** How often each seed tier shows up in the shop's rotating slots / random finds. */
 export const SEED_TIER_WEIGHT: Record<SeedTier, number> = { 0: 60, 1: 30, 2: 10 };
@@ -81,8 +81,8 @@ export const QUALITY_LABEL: Record<Quality, string> = { normal: 'Normal', fine: 
 export const QUALITIES: Quality[] = ['normal', 'fine', 'perfect'];
 /** Fruit per harvest at full vigor. Better care, more fruit. */
 export const QUALITY_YIELD: Record<Quality, number> = { normal: 1, fine: 2, perfect: 3 };
-/** Extra coins per fruit when sold. */
-export const QUALITY_SELL_BONUS: Record<Quality, number> = { normal: 0, fine: 1, perfect: 2 };
+/** Sell price multiplier by quality. */
+export const QUALITY_SELL_MULT: Record<Quality, number> = { normal: 1, fine: 1.5, perfect: 2.5 };
 
 export const fruitKey = (plantId: string, q: Quality) => `${plantId}:${q}`;
 export function parseFruitKey(key: string): { plant: PlantDef; quality: Quality } | null {

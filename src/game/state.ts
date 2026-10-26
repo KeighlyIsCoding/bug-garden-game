@@ -1,7 +1,10 @@
 import { BUG_BY_ID, tierOf } from './bugs';
 import { PITY_LIMIT, PITY_TIER, summon } from './gacha';
-import { buyLand, digUp, EXPANSION_ORDER, harvest, isRipe, newPlot, pullWeed, stepPlots, topDress, useTool } from './garden';
-import { FRUIT_SELL_PRICE, PLANT_BY_ID, QUALITY_SELL_BONUS, SEED_PRICE, fruitKey, parseFruitKey } from './plants';
+import { runAutomation } from './automation';
+import { buyLand, countFruit, digUp, EXPANSION_ORDER, harvest, isRipe, newPlot, pullWeed, sellPrice, stepPlots, topDress, useTool } from './garden';
+import { modifiers } from './modifiers';
+import { PLANT_BY_ID, SEED_PRICE, fruitKey, parseFruitKey } from './plants';
+import { UPGRADE_BY_ID, isUnlocked, level, nextCost } from './upgrades';
 import {
   COMPOST_PER_FERTILIZER,
   FERTILIZER_PRICE,
@@ -14,6 +17,7 @@ import {
   START_PLOTS,
   STAPLE_SEEDS,
   capsuleCost,
+  irrigationRowPrice,
 } from './tuning';
 import type { Action, GameState, Plant, Plot, ShopSlot } from './types';
 import { addTo, notify, rng, weightedSeed } from './util';
@@ -21,7 +25,9 @@ import { addTo, notify, rng, weightedSeed } from './util';
 export * from './types';
 export * from './tuning';
 export { setRng } from './util';
-export { careRatio, expectedYield, growthRate, isRipe, nextLand, qualityFor, stageOf } from './garden';
+export { areaCells, careRatio, countFruit, expectedYield, growthRate, isRipe, nextLand, qualityFor, sellPrice, stageOf } from './garden';
+export { modifiers, type Modifiers } from './modifiers';
+export { UPGRADES, UPGRADE_BY_ID, isUnlocked, level, nextCost, type UpgradeDef } from './upgrades';
 
 export const SAVE_VERSION = 2;
 /** The key predates versioning; the version number inside the save is what changes. */
@@ -55,6 +61,12 @@ export function newGame(now: number): GameState {
     pity: 0,
     totalSummons: 0,
     shop: { slots: rollShop(), refreshedAt: now },
+    upgrades: {},
+    irrigatedRows: [],
+    irrigatedAt: now,
+    barrow: {},
+    barrowAt: now,
+    stand: { qualities: ['normal'], carry: 0 },
     notices: [],
     noticeSeq: 0,
     lastSummon: null,
@@ -65,15 +77,17 @@ export function newGame(now: number): GameState {
 export function advance(s: GameState, now: number): GameState {
   let elapsed = Math.min((now - s.lastTick) / 1000, MAX_OFFLINE_SECONDS);
   if (elapsed <= 0) return s;
-  let plots = s.plots;
+  const m = modifiers(s);
+  const alwaysWet = m.pumpInterval === 0 ? new Set(s.irrigatedRows) : undefined;
+  let next = s;
   let t = s.lastTick;
   while (elapsed > 0) {
     const dt = Math.min(1, elapsed);
     t += dt * 1000;
-    plots = stepPlots(plots, dt, t);
+    next = runAutomation({ ...next, plots: stepPlots(next.plots, dt, t, alwaysWet) }, t, dt, m);
     elapsed -= dt;
   }
-  let next: GameState = { ...s, plots, lastTick: now };
+  next = { ...next, lastTick: now };
   if (now - s.shop.refreshedAt >= SHOP_REFRESH_MS) {
     next = { ...next, shop: { slots: rollShop(), refreshedAt: now } };
   }
@@ -87,7 +101,7 @@ export function reducer(s: GameState, a: Action): GameState {
       return advance(s, a.now);
 
     case 'use':
-      return useTool(advance(s, a.now), a.plotId, a.tool, a.seed, a.now);
+      return useTool(advance(s, a.now), a.plotId, a.tool, a.seed, a.now, modifiers(s));
 
     case 'pullWeed':
       return pullWeed(advance(s, a.now), a.plotId);
@@ -101,7 +115,46 @@ export function reducer(s: GameState, a: Action): GameState {
     case 'buyLand':
       return buyLand(advance(s, a.now));
 
+    case 'buyUpgrade': {
+      const now = advance(s, a.now);
+      const def = UPGRADE_BY_ID[a.id];
+      const cost = nextCost(now, a.id);
+      if (!def || cost === null) return now;
+      if (!isUnlocked(now, def)) return notify(now, 'That upgrade is still locked.', 'info');
+      if (now.coins < cost) return notify(now, 'Not enough coins.', 'warn');
+      const lv = level(now, a.id);
+      return notify(
+        { ...now, coins: now.coins - cost, upgrades: { ...now.upgrades, [a.id]: lv + 1 } },
+        `${def.name}: ${def.levels[lv].effect}!`,
+        'good',
+      );
+    }
+
+    case 'irrigateRow': {
+      if (level(s, 'pump') === 0) return notify(s, 'Buy the irrigation pump first.', 'info');
+      if (s.irrigatedRows.includes(a.row) || !s.plots.some((p) => p.y === a.row)) return s;
+      const price = irrigationRowPrice(s.irrigatedRows.length);
+      if (s.coins < price) return notify(s, 'Not enough coins.', 'warn');
+      return notify(
+        { ...s, coins: s.coins - price, irrigatedRows: [...s.irrigatedRows, a.row].sort((x, y) => x - y) },
+        `Drip line laid along row ${a.row + 1}.`,
+        'good',
+      );
+    }
+
+    case 'emptyBarrow': {
+      const n = countFruit(s.barrow);
+      if (n === 0) return notify(s, 'The wheelbarrow is empty.', 'info');
+      let fruits = s.fruits;
+      for (const [key, count] of Object.entries(s.barrow)) fruits = addTo(fruits, key, count);
+      return notify({ ...s, fruits, barrow: {} }, `Tipped ${n} fruit from the wheelbarrow into your basket!`, 'good');
+    }
+
+    case 'setStand':
+      return { ...s, stand: { ...s.stand, qualities: a.qualities } };
+
     case 'harvestAll': {
+      if (level(s, 'barrow') === 0) return s;
       let next = advance(s, a.now);
       const ripe = next.plots.filter((p) => p.plant && isRipe(p.plant));
       if (ripe.length === 0) return notify(next, 'Nothing is ripe yet.', 'info');
@@ -212,7 +265,7 @@ export function reducer(s: GameState, a: Action): GameState {
       const have = s.fruits[a.key] ?? 0;
       const n = Math.min(a.count, have);
       if (!parsed || n <= 0) return s;
-      const earned = n * (FRUIT_SELL_PRICE[parsed.plant.seedTier] + QUALITY_SELL_BONUS[parsed.quality]);
+      const earned = n * sellPrice(a.key, modifiers(s));
       return { ...s, coins: s.coins + earned, fruits: addTo(s.fruits, a.key, -n) };
     }
 

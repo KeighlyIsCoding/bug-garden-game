@@ -142,10 +142,10 @@ Each plot costs `80 × 1.2^(plots owned − 6)` coins. A plot holds at most one 
 | **Plant**  | Uses a seed from the seed pouch on an empty, weed-free plot. |
 | **Dig up** | Removes the plant (+2 compost). Press twice within 3 s to confirm. |
 | **Top-dress** | 2 compost → +25% vigor. |
-| **Water**  | Refills the plot's moisture to 100%. Free and unlimited, but moisture drains over ~45 s. Dry plants grow at 15% speed. |
+| **Water**  | Refills moisture to 100% for every plot the watering can reaches (1×1, up to 4×4 with upgrades). Free and unlimited, but moisture drains over ~45 s. Dry plants grow at 15% speed. Hand-watering also **soaks** plots: +20% growth for 60 s. |
 | **Weed**   | Click and drag a weed in the plot to pull it out by hand (there is no weed tool). Keyboard: Tab to a weed and press Enter; each weed takes 1–4 presses, with "keep pulling" updates until it comes out. Each weed slows growth by 25%. Weeds give **compost**, and occasionally a random **wild seed** turns up in the soil. |
 | **Fertilize** | Uses 1 fertilizer: +70% growth speed for 90 s and qualifies the fruit for *Perfect*. 3 compost → 1 fertilizer. |
-| **Harvest** | Picks ripe fruit (see 3.3). Plants are perennial: after a harvest they drop back to a sprout and regrow. Chance of a seed drop. |
+| **Harvest** | Picks ripe fruit (see 3.3) from every ripe plot the basket reaches (1×1, up to 3×3). Plants are perennial: after a harvest they drop back to a sprout and regrow. Chance of a seed drop. |
 
 ### 4.3 Growth
 Growth runs in real time (1 s ticks) and is also simulated for time spent away (capped at 2 h).
@@ -161,6 +161,20 @@ growth/sec = 1/growTime × (moist ? 1 : 0.15) × (1 − 0.25·weeds) × (fertili
 ```
 
 Weeds sprout on any plot at random (on average once every ~80 s per plot, max 3).
+
+### 4.4 The Shed (upgrades)
+Upgrades are bought level by level in the Shed tab; each level costs several times the last.
+Hovering or focusing a plot outlines the square the current tool would reach.
+
+| Upgrade | Levels | Effect |
+|---|---|---|
+| Watering can | 150 / 1.2K / 9K | Water reach 2×2 → 3×3 → 4×4 |
+| Irrigation pump | 4K … 250K (needs the 4×4 can) | Waters irrigated rows every 10 min → 5 min → 2 min → 45 s → around the clock. Never soaks. |
+| Drip lines | 3K × 1.7^(lines owned) each | A garden row the pump waters |
+| Harvest basket | 250 / 2.5K | Harvest reach 2×2 → 3×3 |
+| Wheelbarrow | 1.5K / 12K / 80K (needs the 2×2 basket) | Harvest all button; picks ripe plants into the barrow every 30/15/6 s until it holds 40/120/400. A full barrow stops until you tip it into the basket. |
+| Fruit stand | 600 / 5K / 30K | Auto-sells the qualities you tick in the Market, 0.5/1.5/4 fruit per second |
+| Market reputation | 400 × 4^n, 5 levels | +25% sell price per level |
 
 ---
 
@@ -194,7 +208,7 @@ when an Epic+ bug appears.
 |-----------------------------|-------|
 | New species discovered      | 5 / 10 / 20 / 40 / 80 / 150 by tier |
 | Releasing a duplicate       | 2 / 4 / 8 / 16 / 32 / 60 by tier |
-| Selling a fruit             | 1–6 depending on fruit tier |
+| Selling a fruit             | 3 / 8 / 16 by fruit tier, × 1 / 1.5 / 2.5 by quality, × reputation |
 
 | Sink                 | Cost |
 |----------------------|------|
@@ -217,7 +231,8 @@ by seed tier (Common 60%, Uncommon 30%, Rare 10%).
 | **Garden**    | 6-wide plot grid with a "Buy land" tile. Select a plot to see moisture, weeds, growth, care, vigor; top-dress and dig up. Seed pouch to plant. |
 | **Summon**    | Capsule machine, fruit basket with effects and odds table, pity meter, reveal animation. |
 | **Bugdex**    | All species as cards (silhouettes for undiscovered), filter by order/rarity/owned, progress per order. Detail view with Wikipedia photo, extract, status, owned count, release button, link to article. |
-| **Market**    | Buy seeds and fertilizer; sell fruit; compost → fertilizer. |
+| **Shed**      | Upgrades by category (watering, harvesting, market) and drip lines. |
+| **Market**    | Buy seeds and fertilizer; sell fruit (and choose what the fruit stand sells); compost → fertilizer. |
 
 A top bar shows coins, fertilizer, compost and Bugdex progress on every screen.
 

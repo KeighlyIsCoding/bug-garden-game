@@ -1,4 +1,5 @@
 import type { Tier } from './bugs';
+import type { Quality } from './plants';
 
 export interface Plant {
   kind: string;
@@ -20,6 +21,8 @@ export interface Plot {
   x: number;
   y: number;
   moisture: number;
+  /** Hand-watered plots are soaked (a growth bonus) until this time. Irrigation never soaks. */
+  soakedUntil: number;
   weeds: number;
   plant: Plant | null;
 }
@@ -58,6 +61,18 @@ export interface GameState {
   pity: number;
   totalSummons: number;
   shop: { slots: ShopSlot[]; refreshedAt: number };
+  /** Shed upgrade levels by id (missing = 0). */
+  upgrades: Record<string, number>;
+  /** Garden rows (y) with drip lines. The pump waters them on its schedule. */
+  irrigatedRows: number[];
+  /** Last time the pump watered the irrigated rows. */
+  irrigatedAt: number;
+  /** Fruit the wheelbarrow has auto-harvested, waiting to be emptied into the basket. */
+  barrow: Record<string, number>;
+  /** Last time the wheelbarrow went round. */
+  barrowAt: number;
+  /** Fruit stand: which qualities it sells, and the fraction of a sale carried between ticks. */
+  stand: { qualities: Quality[]; carry: number };
   // transient (not saved)
   notices: Notice[];
   noticeSeq: number;
@@ -73,6 +88,10 @@ export type Action =
   | { type: 'digUp'; plotId: number; now: number }
   | { type: 'topDress'; plotId: number; now: number }
   | { type: 'buyLand'; now: number }
+  | { type: 'buyUpgrade'; id: string; now: number }
+  | { type: 'irrigateRow'; row: number; now: number }
+  | { type: 'emptyBarrow'; now: number }
+  | { type: 'setStand'; qualities: Quality[] }
   | { type: 'harvestAll'; now: number }
   | { type: 'summon'; fruitKey: string; now: number }
   | { type: 'release'; bugId: string; count: number }

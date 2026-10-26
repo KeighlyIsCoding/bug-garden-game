@@ -1,11 +1,10 @@
 import { useMemo } from 'react';
 import { ORDER_INFO, bugsInOrder, rareShare } from '../game/bugs';
 import {
-  FRUIT_SELL_PRICE,
   PLANTS,
   PLANT_BY_ID,
+  QUALITIES,
   QUALITY_LABEL,
-  QUALITY_SELL_BONUS,
   SEED_PRICE,
   SEED_TIER_NAMES,
   parseFruitKey,
@@ -17,6 +16,8 @@ import {
   SHOP_REFRESH_MS,
   SHOP_REFRESH_PRICE,
   STAPLE_SEEDS,
+  modifiers,
+  sellPrice,
   type Action,
   type GameState,
 } from '../game/state';
@@ -29,6 +30,7 @@ function effectText(id: string) {
 }
 
 export function Market({ state, dispatch }: { state: GameState; dispatch: (a: Action) => void }) {
+  const m = modifiers(state);
   const refreshIn = Math.max(0, SHOP_REFRESH_MS - (state.lastTick - state.shop.refreshedAt));
   const freeRefresh = refreshIn === 0;
 
@@ -105,18 +107,40 @@ export function Market({ state, dispatch }: { state: GameState; dispatch: (a: Ac
 
         <section className="panel">
           <h3>Fruit stand</h3>
+          {m.standRate > 0 && (
+            <fieldset className="stand-config">
+              <legend className="small">
+                Sells {m.standRate} fruit/s automatically{m.sellMult > 1 && ` · reputation +${Math.round((m.sellMult - 1) * 100)}%`}
+              </legend>
+              {QUALITIES.map((q) => (
+                <label key={q} className="small">
+                  <input
+                    type="checkbox"
+                    checked={state.stand.qualities.includes(q)}
+                    onChange={(e) =>
+                      dispatch({
+                        type: 'setStand',
+                        qualities: e.target.checked ? [...state.stand.qualities, q] : state.stand.qualities.filter((x) => x !== q),
+                      })
+                    }
+                  />{' '}
+                  {QUALITY_LABEL[q]}
+                </label>
+              ))}
+            </fieldset>
+          )}
           {fruitStacks.length === 0 ? (
             <p className="muted">No fruit to sell.</p>
           ) : (
             <div className="sell-list">
               {fruitStacks.map(({ key, count, parsed }) => {
-                const price = FRUIT_SELL_PRICE[parsed.plant.seedTier] + QUALITY_SELL_BONUS[parsed.quality];
+                const price = sellPrice(key, m);
                 return (
                   <div key={key} className="supply">
                     <span>
                       <FruitIcon id={parsed.plant.id} size={22} /> {QUALITY_LABEL[parsed.quality]} {parsed.plant.fruitName} ×{count}
                     </span>
-                    <span className="muted small">{price} 🪙 each</span>
+                    <span className="muted small">{price % 1 ? price.toFixed(2) : price} 🪙 each</span>
                     <span className="row">
                       <button className="btn small" onClick={() => dispatch({ type: 'sellFruit', key, count: 1 })}>
                         Sell 1

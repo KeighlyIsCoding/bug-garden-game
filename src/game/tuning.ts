@@ -24,6 +24,13 @@ export const MAX_WEEDS = 3;
 /** Each weed slows growth by this much. */
 export const WEED_PENALTY = 0.25;
 export const WILD_SEED_CHANCE = 0.08;
+/** Hand-watering soaks a plot: this much faster growth for this long. */
+export const SOAK_SECONDS = 60;
+export const SOAK_GROWTH = 1.2;
+/** Drip line for one garden row: `IRRIGATION_ROW_BASE × growth^(rows already irrigated)`. */
+export const IRRIGATION_ROW_BASE = 3000;
+export const IRRIGATION_ROW_GROWTH = 1.7;
+export const irrigationRowPrice = (irrigated: number) => Math.round(IRRIGATION_ROW_BASE * IRRIGATION_ROW_GROWTH ** irrigated);
 
 // ---------- plants ----------
 /** After a harvest, perennials drop back to this growth (flowering) and regrow. */
