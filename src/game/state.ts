@@ -1,13 +1,28 @@
 import { BUG_BY_ID, tierOf } from './bugs';
 import { PITY_LIMIT, PITY_TIER, summon } from './gacha';
 import { runAutomation } from './automation';
-import { buyLand, countFruit, digUp, EXPANSION_ORDER, harvest, isRipe, newPlot, pullWeed, sellPrice, stepPlots, topDress, useTool } from './garden';
+import {
+  buyLand,
+  countFruit,
+  digUp,
+  EXPANSION_ORDER,
+  harvest,
+  isRipe,
+  newPlant,
+  newPlot,
+  pullWeed,
+  pullWeeds,
+  sellPrice,
+  stepPlots,
+  topDress,
+  useTool,
+} from './garden';
 import { modifiers } from './modifiers';
 import { PLANT_BY_ID, SEED_PRICE, fruitKey, parseFruitKey } from './plants';
 import { UPGRADE_BY_ID, isUnlocked, level, nextCost } from './upgrades';
 import {
-  COMPOST_PER_FERTILIZER,
   FERTILIZER_PRICE,
+  HERBICIDE_PRICE,
   MAX_OFFLINE_SECONDS,
   NEW_BUG_COINS,
   RELEASE_COINS,
@@ -54,6 +69,7 @@ export function newGame(now: number): GameState {
     coins: 30,
     fertilizer: 2,
     compost: 0,
+    herbicide: 0,
     seeds: { apple: 3, strawberry: 3, raspberry: 2 },
     fruits: { [fruitKey('apple', 'normal')]: 2 },
     plots: plots.sort((a, b) => a.id - b.id),
@@ -106,8 +122,16 @@ export function reducer(s: GameState, a: Action): GameState {
     case 'pullWeed':
       return pullWeed(advance(s, a.now), a.plotId);
 
+    case 'pullWeeds':
+      return pullWeeds(advance(s, a.now), a.plotIds);
+
+    case 'buyHerbicide':
+      if (!modifiers(s).canSpray) return notify(s, 'Buy the herbicide sprayer in the Shed first.', 'info');
+      if (s.coins < HERBICIDE_PRICE) return notify(s, 'Not enough coins.', 'warn');
+      return { ...s, coins: s.coins - HERBICIDE_PRICE, herbicide: s.herbicide + 1 };
+
     case 'digUp':
-      return digUp(advance(s, a.now), a.plotId);
+      return digUp(advance(s, a.now), a.plotId, modifiers(s).digSeedChance);
 
     case 'topDress':
       return topDress(advance(s, a.now), a.plotId);
@@ -158,7 +182,8 @@ export function reducer(s: GameState, a: Action): GameState {
       let next = advance(s, a.now);
       const ripe = next.plots.filter((p) => p.plant && isRipe(p.plant));
       if (ripe.length === 0) return notify(next, 'Nothing is ripe yet.', 'info');
-      for (const plot of ripe) next = harvest(next, next.plots.find((p) => p.id === plot.id)!);
+      const cap = modifiers(s).qualityCap;
+      for (const plot of ripe) next = harvest(next, next.plots.find((p) => p.id === plot.id)!, 'basket', cap);
       return next;
     }
 
@@ -269,9 +294,11 @@ export function reducer(s: GameState, a: Action): GameState {
       return { ...s, coins: s.coins + earned, fruits: addTo(s.fruits, a.key, -n) };
     }
 
-    case 'makeFertilizer':
-      if (s.compost < COMPOST_PER_FERTILIZER) return notify(s, `You need ${COMPOST_PER_FERTILIZER} compost.`, 'warn');
-      return { ...s, compost: s.compost - COMPOST_PER_FERTILIZER, fertilizer: s.fertilizer + 1 };
+    case 'makeFertilizer': {
+      const cost = modifiers(s).compostPerFertilizer;
+      if (s.compost < cost) return notify(s, `You need ${cost} compost.`, 'warn');
+      return { ...s, compost: s.compost - cost, fertilizer: s.fertilizer + 1 };
+    }
 
     case 'dismissNotice':
       return { ...s, notices: s.notices.filter((n) => n.id !== a.id) };
@@ -308,7 +335,7 @@ export function migrateV1(data: { plots?: V1Plot[] } & Record<string, unknown>):
 
 /** Fill in any fields a save is missing, so later additions never break older saves. */
 function normalizePlot(p: Plot): Plot {
-  const plant = p.plant && PLANT_BY_ID[p.plant.kind] ? ({ vigor: 1, harvests: 0, ...(p.plant as Partial<Plant>) } as Plant) : null;
+  const plant = p.plant && PLANT_BY_ID[p.plant.kind] ? ({ ...newPlant(p.plant.kind), ...(p.plant as Partial<Plant>) } as Plant) : null;
   return { ...newPlot(p.x, p.y), ...p, plant };
 }
 

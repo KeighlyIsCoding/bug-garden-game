@@ -8,7 +8,7 @@ import { FruitIcon } from './Icons';
 
 type Phase = 'idle' | 'cranking' | 'dropping' | 'reveal';
 
-const QUALITY_ORDER: Quality[] = ['perfect', 'fine', 'normal'];
+const QUALITY_ORDER: Quality[] = ['heirloom', 'prize', 'perfect', 'fine', 'normal'];
 
 // Fixed, pleasant-looking capsule positions inside the dome.
 // Capsules piled in rows at the bottom of the dome, each row a little narrower.

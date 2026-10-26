@@ -221,6 +221,8 @@ input, select { font: inherit; color: inherit; }
 .q-normal { color: var(--muted); }
 .q-fine { color: #2f80d1; }
 .q-perfect { color: #c98a00; }
+.q-prize { color: #b0369a; }
+.q-heirloom { color: #6b3fc4; }
 
 /* ---------- summon ---------- */
 .summon-layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 14px; align-items: start; }
@@ -269,6 +271,8 @@ input, select { font: inherit; color: inherit; }
 .q-chip { font-size: 10.5px; padding: 0 7px; border-radius: 999px; font-weight: 700; text-transform: uppercase; }
 .q-chip.q-fine { background: #dbe7f8; }
 .q-chip.q-perfect { background: #fff0c2; }
+.q-chip.q-prize { background: #fbe0f4; }
+.q-chip.q-heirloom { background: #e9e0fb; }
 
 .odds { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 4px; }
 .odds td { padding: 3px 4px; }
@@ -439,3 +443,7 @@ input, select { font: inherit; color: inherit; }
 .barrow.full { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(224,161,0,0.25); }
 .stand-config { border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; margin: 0 0 10px; display: flex; flex-wrap: wrap; gap: 4px 14px; }
 .stand-config legend { padding: 0 4px; }
+
+/* Herbicide: a faint chemical tint; clipped: little scissors in the corner. */
+.plot.sprayed .soil { box-shadow: inset 0 0 0 100px rgba(170, 200, 90, 0.18); }
+.badge-clip { position: absolute; left: 6px; bottom: 12px; font-size: clamp(10px, 14cqi, 16px); opacity: 0.85; }

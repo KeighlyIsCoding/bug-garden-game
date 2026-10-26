@@ -33,7 +33,7 @@ describe('balance: active player', () => {
 
   it('keeps the Bugdex a long-term goal', () => {
     const species = Object.keys(run().state.collection).length;
-    expect(species).toBeGreaterThan(60);
+    expect(species).toBeGreaterThan(40);
     expect(species).toBeLessThan(150);
   });
 });

@@ -14,7 +14,9 @@ import {
 
 const CATEGORIES: { id: UpgradeDef['category']; title: string; blurb: string }[] = [
   { id: 'water', title: 'Watering', blurb: 'Bigger cans water and soak more plots at once. Then irrigation takes over the routine watering.' },
+  { id: 'weed', title: 'Weeding', blurb: 'Weeds never stop coming. Pull more at once, cut them back, or spray, each with a trade-off.' },
   { id: 'harvest', title: 'Harvesting', blurb: 'Pick more at once, then let the wheelbarrow do the rounds.' },
+  { id: 'soil', title: 'Soil & quality', blurb: 'Better tools for the ground, and higher quality fruit: more fruit per harvest, more luck, better prices.' },
   { id: 'market', title: 'Market', blurb: 'Turn spare fruit into coins without lifting a finger.' },
 ];
 

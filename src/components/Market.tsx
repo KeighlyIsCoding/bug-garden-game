@@ -10,8 +10,8 @@ import {
   parseFruitKey,
 } from '../game/plants';
 import {
-  COMPOST_PER_FERTILIZER,
   FERTILIZER_PRICE,
+  HERBICIDE_PRICE,
   REGROW_FROM,
   SHOP_REFRESH_MS,
   SHOP_REFRESH_PRICE,
@@ -97,12 +97,21 @@ export function Market({ state, dispatch }: { state: GameState; dispatch: (a: Ac
           <div className="supply">
             <span>🍂 Compost → 🧪</span>
             <span className="muted small">
-              {state.compost} compost ({COMPOST_PER_FERTILIZER} per fertilizer)
+              {state.compost} compost ({m.compostPerFertilizer} per fertilizer)
             </span>
-            <button className="btn small" disabled={state.compost < COMPOST_PER_FERTILIZER} onClick={() => dispatch({ type: 'makeFertilizer' })}>
+            <button className="btn small" disabled={state.compost < m.compostPerFertilizer} onClick={() => dispatch({ type: 'makeFertilizer' })}>
               Make fertilizer
             </button>
           </div>
+          {m.canSpray && (
+            <div className="supply">
+              <span>🧴 Herbicide</span>
+              <span className="muted small">You have {state.herbicide}</span>
+              <button className="btn small" disabled={state.coins < HERBICIDE_PRICE} onClick={() => dispatch({ type: 'buyHerbicide' })}>
+                Buy · {HERBICIDE_PRICE} 🪙
+              </button>
+            </div>
+          )}
         </section>
 
         <section className="panel">

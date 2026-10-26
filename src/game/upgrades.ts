@@ -1,6 +1,6 @@
 import type { GameState } from './types';
 
-export type UpgradeCategory = 'water' | 'harvest' | 'market';
+export type UpgradeCategory = 'water' | 'weed' | 'harvest' | 'soil' | 'market';
 
 export interface UpgradeDef {
   id: string;
@@ -45,6 +45,38 @@ export const UPGRADES: UpgradeDef[] = [
     ],
   },
   {
+    id: 'glove',
+    name: 'Gardening glove',
+    icon: '🧤',
+    category: 'weed',
+    summary: 'Pull more weeds with one pull. Keyboard: weeds in the same square share one tug count.',
+    levels: [
+      { cost: 300, effect: 'pulls every weed in the plot' },
+      { cost: 3_000, effect: 'pulls every weed in a 2×2 square' },
+      { cost: 20_000, effect: 'pulls every weed in a 3×3 square' },
+    ],
+  },
+  {
+    id: 'clippers',
+    name: 'Clippers',
+    icon: '✂️',
+    category: 'weed',
+    summary: 'A Clip tool: clears weeds instantly, but leaves the roots, so they grow back twice as fast for 3 minutes. No compost.',
+    levels: [
+      { cost: 800, effect: 'clips one plot' },
+      { cost: 7_000, effect: 'clips a 2×2 square' },
+    ],
+  },
+  {
+    id: 'sprayer',
+    name: 'Herbicide sprayer',
+    icon: '🧴',
+    category: 'weed',
+    summary: 'Lets you buy herbicide at the market and spray it: weeds come back 3× slower for 10 minutes, but that crop drops a quality tier.',
+    requires: { id: 'clippers', level: 1 },
+    levels: [{ cost: 2_500, effect: 'herbicide for sale' }],
+  },
+  {
     id: 'basket',
     name: 'Harvest basket',
     icon: '🧺',
@@ -67,6 +99,42 @@ export const UPGRADES: UpgradeDef[] = [
       { cost: 12_000, effect: 'holds 120, picks every 15 s' },
       { cost: 80_000, effect: 'holds 400, picks every 6 s' },
     ],
+  },
+  {
+    id: 'trowel',
+    name: 'Trowel',
+    icon: '🥄',
+    category: 'soil',
+    summary: 'Dig plants up carefully: half the time you get the seed back.',
+    levels: [{ cost: 500, effect: '50% seed back when digging up' }],
+  },
+  {
+    id: 'tumbler',
+    name: 'Compost tumbler',
+    icon: '🛢️',
+    category: 'soil',
+    summary: 'Better fertilizer from less compost.',
+    levels: [
+      { cost: 3_000, effect: '2 compost per fertilizer' },
+      { cost: 25_000, effect: 'turns compost over 10 into fertilizer by itself' },
+    ],
+  },
+  {
+    id: 'prize',
+    name: 'Show ribbon',
+    icon: '🎗️',
+    category: 'soil',
+    summary: 'Unlocks Prize fruit (4 per harvest): 95% care, fertilized, and hand-watered at least once that crop.',
+    levels: [{ cost: 15_000, effect: 'Prize fruit unlocked' }],
+  },
+  {
+    id: 'heirloom',
+    name: 'Heirloom stock',
+    icon: '🏺',
+    category: 'soil',
+    summary: 'Unlocks Heirloom fruit (5 per harvest): Prize conditions, 98% care, and a vigorous plant (80%+).',
+    requires: { id: 'prize', level: 1 },
+    levels: [{ cost: 120_000, effect: 'Heirloom fruit unlocked' }],
   },
   {
     id: 'stand',

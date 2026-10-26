@@ -26,6 +26,17 @@ export const WEED_PENALTY = 0.25;
 export const WILD_SEED_CHANCE = 0.08;
 /** Hand-watering soaks a plot: this much faster growth for this long. */
 export const SOAK_SECONDS = 60;
+/** Clipped weeds leave their roots: weeds come back this much faster for a while. */
+export const CUT_SECONDS = 180;
+export const CUT_WEED_SPEED = 2;
+/** Herbicide: weeds come back this many times slower, for this long. Costs a quality tier. */
+export const HERBICIDE_SECONDS = 600;
+export const HERBICIDE_WEED_SLOWDOWN = 3;
+export const HERBICIDE_PRICE = 25;
+/** With the trowel, digging up a plant has this chance to give its seed back. */
+export const TROWEL_SEED_CHANCE = 0.5;
+/** The compost tumbler keeps this much compost for top-dressing and turns the rest into fertilizer. */
+export const TUMBLER_RESERVE = 10;
 export const SOAK_GROWTH = 1.2;
 /** Drip line for one garden row: `IRRIGATION_ROW_BASE × growth^(rows already irrigated)`. */
 export const IRRIGATION_ROW_BASE = 3000;
