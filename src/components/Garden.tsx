@@ -1,10 +1,21 @@
-import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { formatNum } from '../format';
 import { ORDER_INFO } from '../game/bugs';
+import { cellId } from '../game/garden';
 import { PLANTS, PLANT_BY_ID, SEED_TIER_NAMES, QUALITY_LABEL } from '../game/plants';
 import {
+  DIG_CONFIRM_MS,
+  GRID_COLS,
+  MAX_PLOTS,
+  TOPDRESS_COMPOST,
+  TOPDRESS_VIGOR,
+  VIGOR_FLOOR,
   careRatio,
+  expectedYield,
   growthRate,
   isRipe,
+  landPrice,
+  nextLand,
   qualityFor,
   stageOf,
   type Action,
@@ -208,7 +219,42 @@ function PlotTile({
   );
 }
 
-function PlotDetails({ plot, now }: { plot: Plot | undefined; now: number }) {
+/** Digging up loses the plant, so it takes a second press within a few seconds to confirm. */
+function DigUpButton({ onDig }: { onDig: () => void }) {
+  const [armed, setArmed] = useState(false);
+  useEffect(() => {
+    if (!armed) return;
+    const t = window.setTimeout(() => setArmed(false), DIG_CONFIRM_MS);
+    return () => window.clearTimeout(t);
+  }, [armed]);
+  return (
+    <span className="bubble-anchor">
+      <button
+        className={`btn small${armed ? ' danger armed' : ''}`}
+        onClick={() => {
+          if (!armed) return setArmed(true);
+          setArmed(false);
+          onDig();
+        }}
+      >
+        🪏 {armed ? 'Press again to dig up' : 'Dig up'}
+      </button>
+      {armed && <Bubble text="Press again to dig it up for good" />}
+    </span>
+  );
+}
+
+function PlotDetails({
+  plot,
+  now,
+  compost,
+  dispatch,
+}: {
+  plot: Plot | undefined;
+  now: number;
+  compost: number;
+  dispatch: (a: Action) => void;
+}) {
   if (!plot) return <p className="muted">Click a plot to tend it.</p>;
   const plant = plot.plant;
   if (!plant)
@@ -255,12 +301,30 @@ function PlotDetails({ plot, now }: { plot: Plot | undefined; now: number }) {
               ? 'used this cycle'
               : 'none'}
         </dd>
-        <dt>Harvests left</dt>
-        <dd>{plant.harvestsLeft}</dd>
+        <dt>Vigor</dt>
+        <dd>
+          {Math.round(plant.vigor * 100)}%
+          <span className="muted"> · ~{expectedYield(plant).toFixed(1)} fruit next harvest</span>
+        </dd>
+        <dt>Harvests</dt>
+        <dd>{plant.harvests}</dd>
       </dl>
       {!plant.fertilizedThisCycle && !isRipe(plant) && (
         <p className="tip">Tip: keep it watered and weed-free and fertilize it for Perfect fruit.</p>
       )}
+      {plant.vigor <= VIGOR_FLOOR + 0.001 && (
+        <p className="tip">This plant is worn out. Top-dress it with compost, or dig it up and replant.</p>
+      )}
+      <div className="row plot-actions">
+        <button
+          className="btn small"
+          disabled={plant.vigor >= 1 || compost < TOPDRESS_COMPOST}
+          onClick={() => dispatch({ type: 'topDress', plotId: plot.id, now: Date.now() })}
+        >
+          🍂 Top-dress: +{Math.round(TOPDRESS_VIGOR * 100)}% vigor for {TOPDRESS_COMPOST} compost
+        </button>
+        <DigUpButton onDig={() => dispatch({ type: 'digUp', plotId: plot.id, now: Date.now() })} />
+      </div>
     </div>
   );
 }
@@ -273,41 +337,63 @@ export function Garden({ state, dispatch }: { state: GameState; dispatch: (a: Ac
 
   const seedList = PLANTS.filter((p) => (state.seeds[p.id] ?? 0) > 0);
   const activeSeed = seed && (state.seeds[seed] ?? 0) > 0 ? seed : null;
-  const ripeCount = state.plots.filter((p) => p.plant && isRipe(p.plant)).length;
-
   const onPlot = (plot: Plot) => {
     setSelected(plot.id);
     dispatch({ type: 'use', plotId: plot.id, tool, seed: activeSeed, now: Date.now() });
   };
+
+  // Lay the garden out on its fixed grid: owned plots, the next plot for sale, and locked land.
+  const byId = new Map(state.plots.map((p) => [p.id, p]));
+  const land = nextLand(state.plots);
+  const landCost = landPrice(state.plots.length);
+  const rows = Math.max(...state.plots.map((p) => p.y + 1), land ? land.y + 1 : 0);
 
   return (
     <div className="garden-layout">
       <section className="panel garden-panel">
         <div className="panel-head">
           <h2>Your garden</h2>
-          <div className="row">
-            <button className="btn small" onClick={() => dispatch({ type: 'waterAll' })}>
-              💧 Water all
-            </button>
-            <button className="btn small" disabled={ripeCount === 0} onClick={() => dispatch({ type: 'harvestAll', now: Date.now() })}>
-              🧺 Harvest all{ripeCount > 0 ? ` (${ripeCount})` : ''}
-            </button>
-          </div>
+          <span className="muted small">
+            {state.plots.length}/{MAX_PLOTS} plots
+          </span>
         </div>
-        <div className="plots" style={{ ['--cols' as string]: Math.min(4, Math.ceil(Math.sqrt(state.plots.length * 1.5))) }}>
-          {state.plots.map((plot) => (
-            <PlotTile
-              key={plot.id}
-              plot={plot}
-              selected={plot.id === selected}
-              now={now}
-              onClick={() => onPlot(plot)}
-              onPullWeed={() => {
-                setSelected(plot.id);
-                dispatch({ type: 'pullWeed', plotId: plot.id, now: Date.now() });
-              }}
-            />
-          ))}
+        <div className="plots">
+          {Array.from({ length: rows * GRID_COLS }, (_, i) => {
+            const x = i % GRID_COLS;
+            const y = Math.floor(i / GRID_COLS);
+            const plot = byId.get(cellId(x, y));
+            if (plot)
+              return (
+                <PlotTile
+                  key={plot.id}
+                  plot={plot}
+                  selected={plot.id === selected}
+                  now={now}
+                  onClick={() => onPlot(plot)}
+                  onPullWeed={() => {
+                    setSelected(plot.id);
+                    dispatch({ type: 'pullWeed', plotId: plot.id, now: Date.now() });
+                  }}
+                />
+              );
+            if (land && land.x === x && land.y === y)
+              return (
+                <button
+                  key={`land-${i}`}
+                  className="land for-sale"
+                  disabled={state.coins < landCost}
+                  onClick={() => dispatch({ type: 'buyLand', now: Date.now() })}
+                  aria-label={`Buy this plot for ${landCost} coins`}
+                >
+                  <span className="emoji" aria-hidden>
+                    🪧
+                  </span>
+                  <span>Buy land</span>
+                  <span className="price">{formatNum(landCost)} 🪙</span>
+                </button>
+              );
+            return <div key={`land-${i}`} className="land locked" aria-hidden />;
+          })}
         </div>
       </section>
 
@@ -360,7 +446,7 @@ export function Garden({ state, dispatch }: { state: GameState; dispatch: (a: Ac
 
         <section className="panel">
           <h3>Plot</h3>
-          <PlotDetails plot={state.plots.find((p) => p.id === selected)} now={now} />
+          <PlotDetails plot={state.plots.find((p) => p.id === selected)} now={now} compost={state.compost} dispatch={dispatch} />
         </section>
       </aside>
     </div>

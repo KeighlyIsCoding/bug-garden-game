@@ -1,137 +1,31 @@
-import { BUG_BY_ID, tierOf, type Tier } from './bugs';
-import { PITY_LIMIT, PITY_TIER, summon, type Rng } from './gacha';
+import { BUG_BY_ID, tierOf } from './bugs';
+import { PITY_LIMIT, PITY_TIER, summon } from './gacha';
+import { buyLand, digUp, EXPANSION_ORDER, harvest, isRipe, newPlot, pullWeed, stepPlots, topDress, useTool } from './garden';
+import { FRUIT_SELL_PRICE, PLANT_BY_ID, QUALITY_SELL_BONUS, SEED_PRICE, fruitKey, parseFruitKey } from './plants';
 import {
-  FRUIT_SELL_PRICE,
-  PLANTS,
-  PLANT_BY_ID,
-  SEED_DROP_CHANCE,
-  SEED_PRICE,
-  SEED_TIER_WEIGHT,
-  fruitKey,
-  parseFruitKey,
-  type Quality,
-} from './plants';
+  COMPOST_PER_FERTILIZER,
+  FERTILIZER_PRICE,
+  MAX_OFFLINE_SECONDS,
+  NEW_BUG_COINS,
+  RELEASE_COINS,
+  SHOP_REFRESH_MS,
+  SHOP_REFRESH_PRICE,
+  SHOP_SLOTS,
+  START_PLOTS,
+  STAPLE_SEEDS,
+  capsuleCost,
+} from './tuning';
+import type { Action, GameState, Plant, Plot, ShopSlot } from './types';
+import { addTo, notify, rng, weightedSeed } from './util';
 
-// ---------- tuning ----------
-export const MOISTURE_SECONDS = 70;
-export const WEED_INTERVAL = 80;
-export const MAX_WEEDS = 3;
-export const FERTILIZER_SECONDS = 90;
-export const FERTILIZER_PRICE = 8;
-export const COMPOST_PER_FERTILIZER = 3;
-export const WILD_SEED_CHANCE = 0.08;
-export const START_PLOTS = 6;
-export const MAX_PLOTS = 16;
-export const SHOP_SLOTS = 4;
-export const SHOP_REFRESH_MS = 3 * 60 * 1000;
-export const SHOP_REFRESH_PRICE = 5;
-export const MAX_OFFLINE_SECONDS = 2 * 60 * 60;
-export const NEW_BUG_COINS = [5, 10, 20, 40, 80, 150];
-export const RELEASE_COINS = [2, 4, 8, 16, 32, 60];
-export const STAPLE_SEEDS = ['apple', 'strawberry'];
+export * from './types';
+export * from './tuning';
+export { setRng } from './util';
+export { careRatio, expectedYield, growthRate, isRipe, nextLand, qualityFor, stageOf } from './garden';
 
-export const plotPrice = (plotCount: number) => 40 + 20 * (plotCount - START_PLOTS);
-
-// ---------- types ----------
-export interface Plant {
-  kind: string;
-  /** 0..1, ripe at 1 */
-  growth: number;
-  harvestsLeft: number;
-  careGood: number;
-  careTotal: number;
-  fertilizedUntil: number;
-  fertilizedThisCycle: boolean;
-}
-
-export interface Plot {
-  id: number;
-  moisture: number;
-  weeds: number;
-  plant: Plant | null;
-}
-
-export interface ShopSlot {
-  plantId: string;
-  stock: number;
-}
-
-export interface Notice {
-  id: number;
-  text: string;
-  kind: 'good' | 'info' | 'warn';
-}
-
-export interface LastSummon {
-  seq: number;
-  bugId: string;
-  tier: Tier;
-  isNew: boolean;
-  coins: number;
-  fruitKey: string;
-  pityTriggered: boolean;
-}
-
-export interface GameState {
-  version: number;
-  lastTick: number;
-  coins: number;
-  fertilizer: number;
-  compost: number;
-  seeds: Record<string, number>;
-  fruits: Record<string, number>;
-  plots: Plot[];
-  collection: Record<string, { count: number; firstAt: number }>;
-  pity: number;
-  totalSummons: number;
-  shop: { slots: ShopSlot[]; refreshedAt: number };
-  // transient (not saved)
-  notices: Notice[];
-  noticeSeq: number;
-  lastSummon: LastSummon | null;
-}
-
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
+/** The key predates versioning; the version number inside the save is what changes. */
 export const SAVE_KEY = 'bug-garden-save-v1';
-
-export type Tool = 'tend' | 'water' | 'fertilize' | 'harvest' | 'plant';
-
-export type Action =
-  | { type: 'tick'; now: number }
-  | { type: 'use'; plotId: number; tool: Tool; seed?: string | null; now: number }
-  | { type: 'pullWeed'; plotId: number; now: number }
-  | { type: 'waterAll' }
-  | { type: 'harvestAll'; now: number }
-  | { type: 'summon'; fruitKey: string; now: number }
-  | { type: 'release'; bugId: string; count: number }
-  | { type: 'releaseAllDuplicates' }
-  | { type: 'buySlot'; index: number }
-  | { type: 'buySeed'; plantId: string }
-  | { type: 'buyFertilizer' }
-  | { type: 'buyPlot' }
-  | { type: 'refreshShop'; now: number }
-  | { type: 'sellFruit'; key: string; count: number }
-  | { type: 'makeFertilizer' }
-  | { type: 'dismissNotice'; id: number }
-  | { type: 'reset'; now: number };
-
-// ---------- helpers ----------
-let rng: Rng = Math.random;
-/** Tests can swap in a deterministic RNG. */
-export function setRng(fn: Rng) {
-  rng = fn;
-}
-
-function weightedSeed(exclude: string[] = []): string {
-  const options = PLANTS.filter((p) => !exclude.includes(p.id));
-  const total = options.reduce((s, p) => s + SEED_TIER_WEIGHT[p.seedTier], 0);
-  let r = rng() * total;
-  for (const p of options) {
-    r -= SEED_TIER_WEIGHT[p.seedTier];
-    if (r < 0) return p.id;
-  }
-  return options[options.length - 1].id;
-}
 
 export function rollShop(): ShopSlot[] {
   const slots: ShopSlot[] = [];
@@ -145,57 +39,9 @@ export function rollShop(): ShopSlot[] {
   return slots;
 }
 
-export function isRipe(p: Plant) {
-  return p.growth >= 1;
-}
-
-export function careRatio(p: Plant) {
-  return p.careTotal > 0 ? p.careGood / p.careTotal : 1;
-}
-
-export function qualityFor(p: Plant): Quality {
-  const care = careRatio(p);
-  if (care >= 0.9 && p.fertilizedThisCycle) return 'perfect';
-  if (care >= 0.6) return 'fine';
-  return 'normal';
-}
-
-export function growthRate(plot: Plot, now: number): number {
-  const p = plot.plant;
-  if (!p || isRipe(p)) return 0;
-  const def = PLANT_BY_ID[p.kind];
-  const water = plot.moisture > 0 ? 1 : 0.15;
-  const weeds = 1 - 0.25 * plot.weeds;
-  const fert = p.fertilizedUntil > now ? 1.7 : 1;
-  return (1 / def.growTime) * water * weeds * fert;
-}
-
-export function stageOf(p: Plant): 'seed' | 'sprout' | 'flowering' | 'ripe' {
-  if (p.growth >= 1) return 'ripe';
-  if (p.growth >= 0.6) return 'flowering';
-  if (p.growth >= 0.25) return 'sprout';
-  return 'seed';
-}
-
-function notify(s: GameState, text: string, kind: Notice['kind'] = 'info'): GameState {
-  const id = s.noticeSeq + 1;
-  return { ...s, noticeSeq: id, notices: [...s.notices.slice(-4), { id, text, kind }] };
-}
-
-function addTo(rec: Record<string, number>, key: string, n: number) {
-  const next = { ...rec, [key]: (rec[key] ?? 0) + n };
-  if (next[key] <= 0) delete next[key];
-  return next;
-}
-
 // ---------- initial state ----------
 export function newGame(now: number): GameState {
-  const plots: Plot[] = Array.from({ length: START_PLOTS }, (_, id) => ({
-    id,
-    moisture: 0,
-    weeds: id === 1 || id === 4 ? 1 : 0,
-    plant: null,
-  }));
+  const plots: Plot[] = EXPANSION_ORDER.slice(0, START_PLOTS).map(({ x, y }, i) => newPlot(x, y, i === 1 || i === 4 ? 1 : 0));
   return {
     version: SAVE_VERSION,
     lastTick: now,
@@ -204,7 +50,7 @@ export function newGame(now: number): GameState {
     compost: 0,
     seeds: { apple: 3, strawberry: 3, raspberry: 2 },
     fruits: { [fruitKey('apple', 'normal')]: 2 },
-    plots,
+    plots: plots.sort((a, b) => a.id - b.id),
     collection: {},
     pity: 0,
     totalSummons: 0,
@@ -216,26 +62,6 @@ export function newGame(now: number): GameState {
 }
 
 // ---------- simulation ----------
-function stepPlots(plots: Plot[], dt: number, now: number): Plot[] {
-  return plots.map((plot) => {
-    let { moisture, weeds } = plot;
-    if (weeds < MAX_WEEDS && rng() < dt / WEED_INTERVAL) weeds += 1;
-    let plant = plot.plant;
-    if (plant && !isRipe(plant)) {
-      const rate = growthRate({ ...plot, weeds }, now);
-      const good = moisture > 0 && weeds === 0;
-      plant = {
-        ...plant,
-        growth: Math.min(1, plant.growth + rate * dt),
-        careTotal: plant.careTotal + dt,
-        careGood: plant.careGood + (good ? dt : 0),
-      };
-    }
-    moisture = Math.max(0, moisture - dt / MOISTURE_SECONDS);
-    return { ...plot, moisture, weeds, plant };
-  });
-}
-
 export function advance(s: GameState, now: number): GameState {
   let elapsed = Math.min((now - s.lastTick) / 1000, MAX_OFFLINE_SECONDS);
   if (elapsed <= 0) return s;
@@ -254,96 +80,6 @@ export function advance(s: GameState, now: number): GameState {
   return next;
 }
 
-// ---------- garden actions ----------
-function updatePlot(s: GameState, id: number, fn: (p: Plot) => Plot): GameState {
-  return { ...s, plots: s.plots.map((p) => (p.id === id ? fn(p) : p)) };
-}
-
-function harvest(s: GameState, plot: Plot): GameState {
-  const plant = plot.plant!;
-  const def = PLANT_BY_ID[plant.kind];
-  const quality = qualityFor(plant);
-  const amount = 2 + (rng() < 0.5 ? 1 : 0) + (plant.fertilizedThisCycle ? 1 : 0);
-  let next: GameState = { ...s, fruits: addTo(s.fruits, fruitKey(def.id, quality), amount) };
-  let msg = `Harvested ${amount} ${quality === 'normal' ? '' : quality + ' '}${def.fruitPlural.toLowerCase()}`;
-  if (rng() < SEED_DROP_CHANCE[def.seedTier]) {
-    next = { ...next, seeds: addTo(next.seeds, def.id, 1) };
-    msg += ' and a seed';
-  }
-  const harvestsLeft = plant.harvestsLeft - 1;
-  const newPlant: Plant | null =
-    harvestsLeft > 0
-      ? { ...plant, growth: 0.6, harvestsLeft, careGood: 0, careTotal: 0, fertilizedThisCycle: false }
-      : null;
-  if (!newPlant) msg += `. The ${def.plantName.toLowerCase()} is spent`;
-  next = updatePlot(next, plot.id, (p) => ({ ...p, plant: newPlant }));
-  return notify(next, msg + '!', 'good');
-}
-
-/** Weeds are pulled by hand (drag on a weed in the garden), not with a tool. */
-function pullWeed(s: GameState, plotId: number): GameState {
-  const plot = s.plots.find((p) => p.id === plotId);
-  if (!plot || plot.weeds === 0) return s;
-  let next = updatePlot(s, plotId, (p) => ({ ...p, weeds: p.weeds - 1 }));
-  next = { ...next, compost: next.compost + 1 };
-  if (rng() < WILD_SEED_CHANCE) {
-    const found = weightedSeed();
-    next = { ...next, seeds: addTo(next.seeds, found, 1) };
-    next = notify(next, `You found a ${PLANT_BY_ID[found].fruitName.toLowerCase()} seed in the soil!`, 'good');
-  }
-  return next;
-}
-
-function useTool(s: GameState, plotId: number, tool: Tool, seed: string | null | undefined, now: number): GameState {
-  const plot = s.plots.find((p) => p.id === plotId);
-  if (!plot) return s;
-  const plant = plot.plant;
-
-  if (tool === 'tend') {
-    if (plant && isRipe(plant)) tool = 'harvest';
-    else if (!plant && seed) tool = 'plant';
-    else if (!plant) return notify(s, 'Pick a seed from your pouch to plant here.', 'info');
-    else tool = 'water';
-  }
-
-  switch (tool) {
-    case 'water':
-      return updatePlot(s, plotId, (p) => ({ ...p, moisture: 1 }));
-    case 'fertilize': {
-      if (!plant) return notify(s, 'Plant something before fertilizing.', 'warn');
-      if (isRipe(plant)) return notify(s, 'This plant is ready to harvest.', 'info');
-      if (s.fertilizer <= 0) return notify(s, 'Out of fertilizer. Make some from compost or buy it at the market.', 'warn');
-      const next = updatePlot(s, plotId, (p) => ({
-        ...p,
-        plant: { ...p.plant!, fertilizedUntil: now + FERTILIZER_SECONDS * 1000, fertilizedThisCycle: true },
-      }));
-      return { ...next, fertilizer: next.fertilizer - 1 };
-    }
-    case 'harvest':
-      if (!plant || !isRipe(plant)) return notify(s, 'Nothing ripe here yet.', 'info');
-      return harvest(s, plot);
-    case 'plant': {
-      if (plant) return notify(s, 'This plot is already planted.', 'info');
-      if (!seed || !(s.seeds[seed] > 0)) return notify(s, 'Choose a seed from your pouch first.', 'warn');
-      if (plot.weeds > 0) return notify(s, 'Pull the weeds before planting.', 'warn');
-      const def = PLANT_BY_ID[seed];
-      const next = updatePlot(s, plotId, (p) => ({
-        ...p,
-        plant: {
-          kind: seed,
-          growth: 0,
-          harvestsLeft: def.harvests,
-          careGood: 0,
-          careTotal: 0,
-          fertilizedUntil: 0,
-          fertilizedThisCycle: false,
-        },
-      }));
-      return { ...next, seeds: addTo(next.seeds, seed, -1) };
-    }
-  }
-}
-
 // ---------- reducer ----------
 export function reducer(s: GameState, a: Action): GameState {
   switch (a.type) {
@@ -356,8 +92,14 @@ export function reducer(s: GameState, a: Action): GameState {
     case 'pullWeed':
       return pullWeed(advance(s, a.now), a.plotId);
 
-    case 'waterAll':
-      return { ...s, plots: s.plots.map((p) => ({ ...p, moisture: 1 })) };
+    case 'digUp':
+      return digUp(advance(s, a.now), a.plotId);
+
+    case 'topDress':
+      return topDress(advance(s, a.now), a.plotId);
+
+    case 'buyLand':
+      return buyLand(advance(s, a.now));
 
     case 'harvestAll': {
       let next = advance(s, a.now);
@@ -371,6 +113,9 @@ export function reducer(s: GameState, a: Action): GameState {
       const parsed = parseFruitKey(a.fruitKey);
       if (!parsed || !(s.fruits[a.fruitKey] > 0)) return notify(s, 'You have none of that fruit.', 'warn');
       const { plant, quality } = parsed;
+      const cost = capsuleCost(Object.keys(s.collection).length);
+      if (s.fruits[a.fruitKey] < cost)
+        return notify(s, `A capsule needs ${cost} of the same fruit now. Harvest more!`, 'warn');
       const pityTriggered = s.pity >= PITY_LIMIT - 1;
       const result = summon(plant, quality, s.pity, (id) => !!s.collection[id], rng);
       const prev = s.collection[result.bug.id];
@@ -378,7 +123,7 @@ export function reducer(s: GameState, a: Action): GameState {
       const coins = isNew ? NEW_BUG_COINS[result.tier] : 0;
       return {
         ...s,
-        fruits: addTo(s.fruits, a.fruitKey, -1),
+        fruits: addTo(s.fruits, a.fruitKey, -cost),
         coins: s.coins + coins,
         collection: {
           ...s.collection,
@@ -452,14 +197,6 @@ export function reducer(s: GameState, a: Action): GameState {
       if (s.coins < FERTILIZER_PRICE) return notify(s, 'Not enough coins.', 'warn');
       return { ...s, coins: s.coins - FERTILIZER_PRICE, fertilizer: s.fertilizer + 1 };
 
-    case 'buyPlot': {
-      if (s.plots.length >= MAX_PLOTS) return notify(s, 'Your garden is as big as it gets!', 'info');
-      const price = plotPrice(s.plots.length);
-      if (s.coins < price) return notify(s, 'Not enough coins.', 'warn');
-      const plot: Plot = { id: Math.max(...s.plots.map((p) => p.id)) + 1, moisture: 0, weeds: 1, plant: null };
-      return notify({ ...s, coins: s.coins - price, plots: [...s.plots, plot] }, 'A new plot is ready for digging.', 'good');
-    }
-
     case 'refreshShop': {
       const free = a.now - s.shop.refreshedAt >= SHOP_REFRESH_MS;
       if (!free && s.coins < SHOP_REFRESH_PRICE) return notify(s, 'Not enough coins.', 'warn');
@@ -475,8 +212,7 @@ export function reducer(s: GameState, a: Action): GameState {
       const have = s.fruits[a.key] ?? 0;
       const n = Math.min(a.count, have);
       if (!parsed || n <= 0) return s;
-      const bonus = parsed.quality === 'perfect' ? 2 : parsed.quality === 'fine' ? 1 : 0;
-      const earned = n * (FRUIT_SELL_PRICE[parsed.plant.seedTier] + bonus);
+      const earned = n * (FRUIT_SELL_PRICE[parsed.plant.seedTier] + QUALITY_SELL_BONUS[parsed.quality]);
       return { ...s, coins: s.coins + earned, fruits: addTo(s.fruits, a.key, -n) };
     }
 
@@ -498,15 +234,41 @@ export function serialize(s: GameState): string {
   return JSON.stringify(rest);
 }
 
+type V1Plant = Omit<Plant, 'vigor' | 'harvests'> & { harvestsLeft?: number };
+type V1Plot = { id: number; moisture: number; weeds: number; plant: V1Plant | null };
+
+/**
+ * v1 saves had a free-form list of up to 16 plots and plants that died after a few harvests.
+ * Lay those plots onto the grid in the order land is sold, and make every plant a fresh perennial.
+ */
+export function migrateV1(data: { plots?: V1Plot[] } & Record<string, unknown>): Record<string, unknown> {
+  const old = Array.isArray(data.plots) ? data.plots : [];
+  const plots: Plot[] = old.slice(0, EXPANSION_ORDER.length).map((p, i) => {
+    const { x, y } = EXPANSION_ORDER[i];
+    const plant: Plant | null = p.plant
+      ? { ...(({ harvestsLeft: _h, ...rest }) => rest)(p.plant), vigor: 1, harvests: 0 }
+      : null;
+    return { ...newPlot(x, y, p.weeds ?? 0), moisture: p.moisture ?? 0, plant };
+  });
+  return { ...data, version: SAVE_VERSION, plots: plots.sort((a, b) => a.id - b.id) };
+}
+
+/** Fill in any fields a save is missing, so later additions never break older saves. */
+function normalizePlot(p: Plot): Plot {
+  const plant = p.plant && PLANT_BY_ID[p.plant.kind] ? ({ vigor: 1, harvests: 0, ...(p.plant as Partial<Plant>) } as Plant) : null;
+  return { ...newPlot(p.x, p.y), ...p, plant };
+}
+
 export function deserialize(json: string | null, now: number): GameState {
   if (!json) return newGame(now);
   try {
-    const data = JSON.parse(json);
+    let data = JSON.parse(json);
+    if (data?.version === 1) data = migrateV1(data);
     if (data?.version !== SAVE_VERSION) return newGame(now);
     const base = newGame(now);
     const s: GameState = { ...base, ...data, notices: [], noticeSeq: 0, lastSummon: null };
     // Drop anything that refers to plants or bugs that no longer exist.
-    s.plots = s.plots.map((p) => (p.plant && !PLANT_BY_ID[p.plant.kind] ? { ...p, plant: null } : p));
+    s.plots = s.plots.map(normalizePlot);
     s.seeds = Object.fromEntries(Object.entries(s.seeds).filter(([k]) => PLANT_BY_ID[k]));
     s.fruits = Object.fromEntries(Object.entries(s.fruits).filter(([k]) => parseFruitKey(k)));
     s.collection = Object.fromEntries(Object.entries(s.collection).filter(([k]) => BUG_BY_ID[k]));

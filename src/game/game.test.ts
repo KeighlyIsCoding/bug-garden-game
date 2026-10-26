@@ -2,7 +2,7 @@ import { describe, expect, it, beforeEach } from 'vitest';
 import { BUGS, ORDERS, rareShare, tierOf } from './bugs';
 import { PITY_LIMIT, summon, tierOdds } from './gacha';
 import { ORDER_SEED_TIERS, PLANT_BY_ID, PLANTS, fruitKey } from './plants';
-import { advance, deserialize, newGame, qualityFor, reducer, serialize, setRng, type GameState } from './state';
+import { REGROW_FROM, advance, deserialize, newGame, qualityFor, reducer, serialize, setRng, type GameState } from './state';
 
 function seeded(seed: number) {
   return () => {
@@ -87,7 +87,10 @@ describe('garden', () => {
     const before = s.fruits[fruitKey('apple', 'fine')] ?? 0;
     s = reducer(s, { type: 'use', plotId: 0, tool: 'harvest', now });
     expect(s.fruits[fruitKey('apple', 'fine')]).toBeGreaterThan(before);
-    expect(s.plots[0].plant?.harvestsLeft).toBe(2);
+    // Perennial: it stays in the ground, regrows from flowering, and loses a little vigor.
+    expect(s.plots[0].plant?.harvests).toBe(1);
+    expect(s.plots[0].plant?.growth).toBeCloseTo(REGROW_FROM);
+    expect(s.plots[0].plant?.vigor).toBeLessThan(1);
   });
 
   it('dry plants grow much slower', () => {

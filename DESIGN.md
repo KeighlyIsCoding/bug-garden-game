@@ -117,33 +117,44 @@ Wild-fruit seeds are fixed: Apple/Strawberry common, Mango uncommon, Starfruit r
 Care is measured continuously while a plant grows: the fraction of time it was **watered and
 weed-free**. At harvest:
 
-| Quality  | Requirement                               | Luck bonus |
-|----------|-------------------------------------------|------------|
-| Normal   | —                                         | +0         |
-| Fine     | care ≥ 60%                                | +0.25      |
-| Perfect  | care ≥ 90% **and** fertilized this cycle  | +0.6       |
+| Quality  | Requirement                               | Luck bonus | Fruit per harvest |
+|----------|-------------------------------------------|------------|-------------------|
+| Normal   | —                                         | +0         | 1                 |
+| Fine     | care ≥ 60%                                | +0.25      | 2                 |
+| Perfect  | care ≥ 90% **and** fertilized this cycle  | +0.6       | 3                 |
+
+Fruit per harvest is multiplied by the plant's **vigor** (see 4.3) and rounded randomly, so 2.4 fruit
+pays 2 or 3 with the right average.
 
 ---
 
 ## 4. Garden
 
 ### 4.1 Plots
-The garden starts with 6 plots (more can be bought, up to 16). A plot holds at most one plant
-and up to 3 weeds.
+The garden is a fixed grid, 6 plots wide and up to 8 rows deep (48 plots). It starts as a 3×2 bed in
+the top-left corner. Land is bought one plot at a time from a "Buy land" tile in the garden, in a
+fixed order: rows 1–2 are widened to the full 6 columns, then whole rows are added below.
+Each plot costs `80 × 1.2^(plots owned − 6)` coins. A plot holds at most one plant and up to 3 weeds.
 
 ### 4.2 Actions
 | Action     | Effect |
 |------------|--------|
 | **Plant**  | Uses a seed from the seed pouch on an empty, weed-free plot. |
-| **Water**  | Refills the plot's moisture to 100%. Free and unlimited, but moisture drains over ~70 s. Dry plants grow at 15% speed. |
+| **Dig up** | Removes the plant (+2 compost). Press twice within 3 s to confirm. |
+| **Top-dress** | 2 compost → +25% vigor. |
+| **Water**  | Refills the plot's moisture to 100%. Free and unlimited, but moisture drains over ~45 s. Dry plants grow at 15% speed. |
 | **Weed**   | Click and drag a weed in the plot to pull it out by hand (there is no weed tool). Keyboard: Tab to a weed and press Enter; each weed takes 1–4 presses, with "keep pulling" updates until it comes out. Each weed slows growth by 25%. Weeds give **compost**, and occasionally a random **wild seed** turns up in the soil. |
 | **Fertilize** | Uses 1 fertilizer: +70% growth speed for 90 s and qualifies the fruit for *Perfect*. 3 compost → 1 fertilizer. |
-| **Harvest** | Picks ripe fruit (2–3 per harvest, +1 if fertilized). Plants have a number of harvests (1–3) before they're spent; after a harvest they go back to flowering. Chance of a seed drop. |
+| **Harvest** | Picks ripe fruit (see 3.3). Plants are perennial: after a harvest they drop back to a sprout and regrow. Chance of a seed drop. |
 
 ### 4.3 Growth
 Growth runs in real time (1 s ticks) and is also simulated for time spent away (capped at 2 h).
-Stages: **Seed → Sprout → Flowering → Ripe**. Growth time depends on the plant (45 s – 4 min),
-with rarer plants taking longer.
+Stages: **Seed → Sprout → Flowering → Ripe**. Growth time depends on the plant (50 s – 2.7 min),
+with rarer plants taking longer. After a harvest a plant regrows from 25% (a sprout), so later crops
+take 75% of the first one's time.
+
+Plants never die, but each harvest wears **vigor** down by 6%, to a floor of 40%. Vigor multiplies
+fruit per harvest, so old plants are worth top-dressing or replacing.
 
 ```
 growth/sec = 1/growTime × (moist ? 1 : 0.15) × (1 − 0.25·weeds) × (fertilized ? 1.7 : 1)
@@ -155,7 +166,8 @@ Weeds sprout on any plot at random (on average once every ~80 s per plot, max 3)
 
 ## 5. Summoning (the capsule machine)
 
-1. Pick a fruit from the basket and drop it in.
+1. Pick a fruit from the basket and drop it in. The machine gets hungrier as the Bugdex fills:
+   a capsule costs `1 + floor(species owned / 10)` of the same fruit (1 at the start, 20 near the end).
 2. Turn the crank → a capsule drops, colored by rarity → it pops open to reveal the bug.
 
 ### 5.1 Odds
@@ -188,7 +200,7 @@ when an Epic+ bug appears.
 |----------------------|------|
 | Seeds                | 5 (common) / 12 (uncommon) / 30 (rare) |
 | Fertilizer           | 8 |
-| New plot             | 40, +20 per plot owned beyond 6 |
+| New plot             | 80 × 1.2^(plots owned − 6) |
 | Shop refresh         | 5 (free refresh every 3 min) |
 
 **Shop:** always sells Apple and Strawberry seeds and fertilizer, plus 4 rotating slots drawn
@@ -202,10 +214,10 @@ by seed tier (Common 60%, Uncommon 30%, Rare 10%).
 
 | Screen        | Contents |
 |---------------|----------|
-| **Garden**    | Plot grid. Select a plot to see moisture, weeds, growth, care; action buttons. Seed pouch to plant. "Water all" convenience. |
+| **Garden**    | 6-wide plot grid with a "Buy land" tile. Select a plot to see moisture, weeds, growth, care, vigor; top-dress and dig up. Seed pouch to plant. |
 | **Summon**    | Capsule machine, fruit basket with effects and odds table, pity meter, reveal animation. |
 | **Bugdex**    | All species as cards (silhouettes for undiscovered), filter by order/rarity/owned, progress per order. Detail view with Wikipedia photo, extract, status, owned count, release button, link to article. |
-| **Market**    | Buy seeds, fertilizer, plots; sell fruit; compost → fertilizer. |
+| **Market**    | Buy seeds and fertilizer; sell fruit; compost → fertilizer. |
 
 A top bar shows coins, fertilizer, compost and Bugdex progress on every screen.
 
@@ -213,7 +225,9 @@ A top bar shows coins, fertilizer, compost and Bugdex progress on every screen.
 
 ## 8. Persistence
 State is saved to `localStorage` (`bug-garden-save-v1`) every few seconds and on page hide.
-A save includes a version number; an incompatible version starts a fresh game. A "Reset game"
+A save includes a version number. Version 1 saves (before the grid) are migrated: their plots are
+laid onto the grid in buying order and every plant becomes a full-vigor perennial. Unknown versions
+start a fresh game. A "Reset game"
 option lives in the Market screen.
 
 ---

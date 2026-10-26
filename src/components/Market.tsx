@@ -5,6 +5,7 @@ import {
   PLANTS,
   PLANT_BY_ID,
   QUALITY_LABEL,
+  QUALITY_SELL_BONUS,
   SEED_PRICE,
   SEED_TIER_NAMES,
   parseFruitKey,
@@ -12,11 +13,10 @@ import {
 import {
   COMPOST_PER_FERTILIZER,
   FERTILIZER_PRICE,
-  MAX_PLOTS,
+  REGROW_FROM,
   SHOP_REFRESH_MS,
   SHOP_REFRESH_PRICE,
   STAPLE_SEEDS,
-  plotPrice,
   type Action,
   type GameState,
 } from '../game/state';
@@ -101,19 +101,6 @@ export function Market({ state, dispatch }: { state: GameState; dispatch: (a: Ac
               Make fertilizer
             </button>
           </div>
-          <div className="supply">
-            <span>🟫 New plot</span>
-            <span className="muted small">
-              {state.plots.length}/{MAX_PLOTS} plots
-            </span>
-            <button
-              className="btn small"
-              disabled={state.plots.length >= MAX_PLOTS || state.coins < plotPrice(state.plots.length)}
-              onClick={() => dispatch({ type: 'buyPlot' })}
-            >
-              {state.plots.length >= MAX_PLOTS ? 'Maxed' : `Buy · ${plotPrice(state.plots.length)} 🪙`}
-            </button>
-          </div>
         </section>
 
         <section className="panel">
@@ -123,8 +110,7 @@ export function Market({ state, dispatch }: { state: GameState; dispatch: (a: Ac
           ) : (
             <div className="sell-list">
               {fruitStacks.map(({ key, count, parsed }) => {
-                const bonus = parsed.quality === 'perfect' ? 2 : parsed.quality === 'fine' ? 1 : 0;
-                const price = FRUIT_SELL_PRICE[parsed.plant.seedTier] + bonus;
+                const price = FRUIT_SELL_PRICE[parsed.plant.seedTier] + QUALITY_SELL_BONUS[parsed.quality];
                 return (
                   <div key={key} className="supply">
                     <span>
@@ -165,7 +151,7 @@ export function Market({ state, dispatch }: { state: GameState; dispatch: (a: Ac
                 <th>Seed</th>
                 <th className="num">Threatened share</th>
                 <th className="num">Grow time</th>
-                <th className="num">Harvests</th>
+                <th className="num">Regrows in</th>
               </tr>
             </thead>
             <tbody>
@@ -188,7 +174,7 @@ export function Market({ state, dispatch }: { state: GameState; dispatch: (a: Ac
                   </td>
                   <td className="num">{p.order ? `${Math.round(rareShare(p.order) * 100)}%` : '—'}</td>
                   <td className="num">{Math.round(p.growTime)}s</td>
-                  <td className="num">{p.harvests}</td>
+                  <td className="num">{Math.round(p.growTime * (1 - REGROW_FROM))}s</td>
                 </tr>
               ))}
             </tbody>

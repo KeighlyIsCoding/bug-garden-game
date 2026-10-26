@@ -18,31 +18,30 @@ export interface PlantDef {
   seedTier: SeedTier;
   /** seconds from seed to first ripe fruit at full health */
   growTime: number;
-  harvests: number;
 }
 
 type BaseDef = Omit<PlantDef, 'seedTier' | 'growTime'> & { seedTier?: SeedTier };
 
 const WILD: BaseDef[] = [
-  { id: 'apple', plantName: 'Apple tree', fruitName: 'Apple', fruitPlural: 'Apples', form: 'tree', order: null, luck: 0, harvests: 3, seedTier: 0 },
-  { id: 'strawberry', plantName: 'Strawberry patch', fruitName: 'Strawberry', fruitPlural: 'Strawberries', form: 'patch', order: null, luck: 0.25, harvests: 2, seedTier: 0 },
-  { id: 'mango', plantName: 'Mango tree', fruitName: 'Mango', fruitPlural: 'Mangoes', form: 'tree', order: null, luck: 0.75, harvests: 2, seedTier: 1 },
-  { id: 'starfruit', plantName: 'Carambola tree', fruitName: 'Starfruit', fruitPlural: 'Starfruit', form: 'tree', order: null, luck: 1.5, harvests: 2, seedTier: 2 },
+  { id: 'apple', plantName: 'Apple tree', fruitName: 'Apple', fruitPlural: 'Apples', form: 'tree', order: null, luck: 0, seedTier: 0 },
+  { id: 'strawberry', plantName: 'Strawberry patch', fruitName: 'Strawberry', fruitPlural: 'Strawberries', form: 'patch', order: null, luck: 0.25, seedTier: 0 },
+  { id: 'mango', plantName: 'Mango tree', fruitName: 'Mango', fruitPlural: 'Mangoes', form: 'tree', order: null, luck: 0.75, seedTier: 1 },
+  { id: 'starfruit', plantName: 'Carambola tree', fruitName: 'Starfruit', fruitPlural: 'Starfruit', form: 'tree', order: null, luck: 1.5, seedTier: 2 },
 ];
 
 const ORDER_FRUITS: BaseDef[] = [
-  { id: 'raspberry', plantName: 'Raspberry cane', fruitName: 'Raspberry', fruitPlural: 'Raspberries', form: 'bush', order: 'Coleoptera', luck: 0, harvests: 2 },
-  { id: 'passionfruit', plantName: 'Passion vine', fruitName: 'Passionfruit', fruitPlural: 'Passionfruit', form: 'vine', order: 'Lepidoptera', luck: 0, harvests: 2 },
-  { id: 'dragonfruit', plantName: 'Pitaya cactus', fruitName: 'Dragonfruit', fruitPlural: 'Dragonfruit', form: 'cactus', order: 'Odonata', luck: 0, harvests: 2 },
-  { id: 'fig', plantName: 'Fig tree', fruitName: 'Fig', fruitPlural: 'Figs', form: 'tree', order: 'Hymenoptera', luck: 0, harvests: 3 },
-  { id: 'grape', plantName: 'Grapevine', fruitName: 'Grapes', fruitPlural: 'Grapes', form: 'vine', order: 'Hemiptera', luck: 0, harvests: 3 },
-  { id: 'kiwi', plantName: 'Kiwi vine', fruitName: 'Kiwifruit', fruitPlural: 'Kiwifruit', form: 'vine', order: 'Orthoptera', luck: 0, harvests: 2 },
-  { id: 'banana', plantName: 'Banana plant', fruitName: 'Banana', fruitPlural: 'Bananas', form: 'palm', order: 'Phasmatodea', luck: 0, harvests: 2 },
-  { id: 'pear', plantName: 'Pear tree', fruitName: 'Pear', fruitPlural: 'Pears', form: 'tree', order: 'Mantodea', luck: 0, harvests: 3 },
-  { id: 'blueberry', plantName: 'Blueberry bush', fruitName: 'Blueberry', fruitPlural: 'Blueberries', form: 'bush', order: 'Diptera', luck: 0, harvests: 3 },
-  { id: 'coconut', plantName: 'Coconut palm', fruitName: 'Coconut', fruitPlural: 'Coconuts', form: 'palm', order: 'Blattodea', luck: 0, harvests: 2 },
-  { id: 'cherry', plantName: 'Cherry tree', fruitName: 'Cherry', fruitPlural: 'Cherries', form: 'tree', order: 'Neuroptera', luck: 0, harvests: 3 },
-  { id: 'peach', plantName: 'Peach tree', fruitName: 'Peach', fruitPlural: 'Peaches', form: 'tree', order: 'Ephemeroptera', luck: 0, harvests: 2 },
+  { id: 'raspberry', plantName: 'Raspberry cane', fruitName: 'Raspberry', fruitPlural: 'Raspberries', form: 'bush', order: 'Coleoptera', luck: 0 },
+  { id: 'passionfruit', plantName: 'Passion vine', fruitName: 'Passionfruit', fruitPlural: 'Passionfruit', form: 'vine', order: 'Lepidoptera', luck: 0 },
+  { id: 'dragonfruit', plantName: 'Pitaya cactus', fruitName: 'Dragonfruit', fruitPlural: 'Dragonfruit', form: 'cactus', order: 'Odonata', luck: 0 },
+  { id: 'fig', plantName: 'Fig tree', fruitName: 'Fig', fruitPlural: 'Figs', form: 'tree', order: 'Hymenoptera', luck: 0 },
+  { id: 'grape', plantName: 'Grapevine', fruitName: 'Grapes', fruitPlural: 'Grapes', form: 'vine', order: 'Hemiptera', luck: 0 },
+  { id: 'kiwi', plantName: 'Kiwi vine', fruitName: 'Kiwifruit', fruitPlural: 'Kiwifruit', form: 'vine', order: 'Orthoptera', luck: 0 },
+  { id: 'banana', plantName: 'Banana plant', fruitName: 'Banana', fruitPlural: 'Bananas', form: 'palm', order: 'Phasmatodea', luck: 0 },
+  { id: 'pear', plantName: 'Pear tree', fruitName: 'Pear', fruitPlural: 'Pears', form: 'tree', order: 'Mantodea', luck: 0 },
+  { id: 'blueberry', plantName: 'Blueberry bush', fruitName: 'Blueberry', fruitPlural: 'Blueberries', form: 'bush', order: 'Diptera', luck: 0 },
+  { id: 'coconut', plantName: 'Coconut palm', fruitName: 'Coconut', fruitPlural: 'Coconuts', form: 'palm', order: 'Blattodea', luck: 0 },
+  { id: 'cherry', plantName: 'Cherry tree', fruitName: 'Cherry', fruitPlural: 'Cherries', form: 'tree', order: 'Neuroptera', luck: 0 },
+  { id: 'peach', plantName: 'Peach tree', fruitName: 'Peach', fruitPlural: 'Peaches', form: 'tree', order: 'Ephemeroptera', luck: 0 },
 ];
 
 /**
@@ -78,6 +77,12 @@ export const SEED_TIER_WEIGHT: Record<SeedTier, number> = { 0: 60, 1: 30, 2: 10 
 export type Quality = 'normal' | 'fine' | 'perfect';
 export const QUALITY_LUCK: Record<Quality, number> = { normal: 0, fine: 0.25, perfect: 0.6 };
 export const QUALITY_LABEL: Record<Quality, string> = { normal: 'Normal', fine: 'Fine', perfect: 'Perfect' };
+/** Lowest to highest. */
+export const QUALITIES: Quality[] = ['normal', 'fine', 'perfect'];
+/** Fruit per harvest at full vigor. Better care, more fruit. */
+export const QUALITY_YIELD: Record<Quality, number> = { normal: 1, fine: 2, perfect: 3 };
+/** Extra coins per fruit when sold. */
+export const QUALITY_SELL_BONUS: Record<Quality, number> = { normal: 0, fine: 1, perfect: 2 };
 
 export const fruitKey = (plantId: string, q: Quality) => `${plantId}:${q}`;
 export function parseFruitKey(key: string): { plant: PlantDef; quality: Quality } | null {
