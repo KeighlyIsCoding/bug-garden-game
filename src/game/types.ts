@@ -56,6 +56,36 @@ export interface LastSummon {
   pityTriggered: boolean;
 }
 
+/** Lifetime counters, for achievements and the away summary. */
+export interface Stats {
+  fruitHarvested: number;
+  coinsEarned: number;
+  weedsPulled: number;
+  butterflies: number;
+  heirlooms: number;
+}
+
+/** The golden butterfly: hidden until `nextAt`, then on screen from `shownAt` for a few seconds. */
+export interface Butterfly {
+  nextAt: number;
+  shownAt: number | null;
+  /** Where it flutters, in % of the garden. */
+  x: number;
+  y: number;
+}
+
+/** What happened while the game was closed, shown once on return. */
+export interface AwaySummary {
+  seconds: number;
+  /** True when the time away was longer than the garden can keep growing unattended. */
+  capped: boolean;
+  coins: number;
+  fruit: number;
+  weeds: number;
+  ripe: number;
+  barrowFull: boolean;
+}
+
 export interface GameState {
   version: number;
   lastTick: number;
@@ -83,7 +113,12 @@ export interface GameState {
   barrowAt: number;
   /** Fruit stand: which qualities it sells, and the fraction of a sale carried between ticks. */
   stand: { qualities: Quality[]; carry: number };
+  stats: Stats;
+  /** Achievement ids earned. */
+  achievements: string[];
+  butterfly: Butterfly;
   // transient (not saved)
+  awaySummary: AwaySummary | null;
   notices: Notice[];
   noticeSeq: number;
   lastSummon: LastSummon | null;
@@ -106,6 +141,8 @@ export type Action =
   | { type: 'emptyBarrow'; now: number }
   | { type: 'setStand'; qualities: Quality[] }
   | { type: 'harvestAll'; now: number }
+  | { type: 'catchButterfly'; now: number }
+  | { type: 'dismissAway' }
   | { type: 'summon'; fruitKey: string; now: number }
   | { type: 'release'; bugId: string; count: number }
   | { type: 'releaseAllDuplicates' }

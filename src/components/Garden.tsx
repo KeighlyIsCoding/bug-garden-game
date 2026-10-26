@@ -417,7 +417,7 @@ function PlotDetails({
       </div>
     );
   const def = PLANT_BY_ID[plant.kind];
-  const rate = growthRate(plot, now);
+  const rate = growthRate(plot, now, m);
   const eta = isRipe(plant) ? 0 : (1 - plant.growth) / rate;
   const quality = qualityFor(plant, m.qualityCap);
   return (
@@ -452,7 +452,7 @@ function PlotDetails({
         <dt>Vigor</dt>
         <dd>
           {Math.round(plant.vigor * 100)}%
-          <span className="muted"> · ~{expectedYield(plant, m.qualityCap).toFixed(1)} fruit next harvest</span>
+          <span className="muted"> · ~{expectedYield(plant, m).toFixed(1)} fruit next harvest</span>
         </dd>
         <dt>Harvests</dt>
         <dd>{plant.harvests}</dd>

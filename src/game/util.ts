@@ -14,6 +14,12 @@ export function notify(s: GameState, text: string, kind: Notice['kind'] = 'info'
   return { ...s, noticeSeq: id, notices: [...s.notices.slice(-4), { id, text, kind }] };
 }
 
+/** Add coins, counting them toward lifetime earnings. */
+export function earn(s: GameState, coins: number): GameState {
+  if (coins === 0) return s;
+  return { ...s, coins: s.coins + coins, stats: { ...s.stats, coinsEarned: s.stats.coinsEarned + coins } };
+}
+
 export function addTo(rec: Record<string, number>, key: string, n: number) {
   const next = { ...rec, [key]: (rec[key] ?? 0) + n };
   if (next[key] <= 0) delete next[key];

@@ -1,3 +1,4 @@
+import { checkAchievements } from './achievements';
 import { BUG_BY_ID, tierOf } from './bugs';
 import { PITY_LIMIT, PITY_TIER, summon } from './gacha';
 import { runAutomation } from './automation';
@@ -7,6 +8,7 @@ import {
   digUp,
   EXPANSION_ORDER,
   harvest,
+  incomeEstimate,
   isRipe,
   newPlant,
   newPlot,
@@ -17,14 +19,24 @@ import {
   topDress,
   useTool,
 } from './garden';
-import { modifiers } from './modifiers';
+import { modifiers, type Modifiers } from './modifiers';
 import { PLANT_BY_ID, SEED_PRICE, fruitKey, parseFruitKey } from './plants';
 import { UPGRADE_BY_ID, isUnlocked, level, nextCost } from './upgrades';
 import {
   FERTILIZER_PRICE,
+  AWAY_SUMMARY_SECONDS,
+  BLOOM_GROWTH,
+  BUTTERFLY_FIRST_SECONDS,
+  BUTTERFLY_MAX_SECONDS,
+  BUTTERFLY_MIN_SECONDS,
+  BUTTERFLY_STAY_SECONDS,
+  COARSE_AFTER_SECONDS,
+  COARSE_STEP_SECONDS,
   HERBICIDE_PRICE,
-  MAX_OFFLINE_SECONDS,
   NEW_BUG_COINS,
+  PURSE_MIN,
+  PURSE_SECONDS,
+  SOAK_SECONDS,
   RELEASE_COINS,
   SHOP_REFRESH_MS,
   SHOP_REFRESH_PRICE,
@@ -35,12 +47,14 @@ import {
   irrigationRowPrice,
 } from './tuning';
 import type { Action, GameState, Plant, Plot, ShopSlot } from './types';
-import { addTo, notify, rng, weightedSeed } from './util';
+import { addTo, earn, notify, rng, weightedSeed } from './util';
 
 export * from './types';
 export * from './tuning';
 export { setRng } from './util';
-export { areaCells, careRatio, countFruit, expectedYield, growthRate, isRipe, nextLand, qualityFor, sellPrice, stageOf } from './garden';
+export { areaCells, careRatio, countFruit, expectedYield, growthRate, incomeEstimate, isRipe, nextLand, qualityFor, sellPrice, stageOf } from './garden';
+export { ACHIEVEMENTS, ACHIEVEMENT_BONUS } from './achievements';
+export { ORDER_BONUS, orderProgress } from './bonuses';
 export { modifiers, type Modifiers } from './modifiers';
 export { UPGRADES, UPGRADE_BY_ID, isUnlocked, level, nextCost, type UpgradeDef } from './upgrades';
 
@@ -83,6 +97,10 @@ export function newGame(now: number): GameState {
     barrow: {},
     barrowAt: now,
     stand: { qualities: ['normal'], carry: 0 },
+    stats: { fruitHarvested: 0, coinsEarned: 0, weedsPulled: 0, butterflies: 0, heirlooms: 0 },
+    achievements: [],
+    butterfly: { nextAt: now + BUTTERFLY_FIRST_SECONDS * 1000, shownAt: null, x: 50, y: 50 },
+    awaySummary: null,
     notices: [],
     noticeSeq: 0,
     lastSummon: null,
@@ -91,16 +109,18 @@ export function newGame(now: number): GameState {
 
 // ---------- simulation ----------
 export function advance(s: GameState, now: number): GameState {
-  let elapsed = Math.min((now - s.lastTick) / 1000, MAX_OFFLINE_SECONDS);
-  if (elapsed <= 0) return s;
   const m = modifiers(s);
+  let elapsed = Math.min((now - s.lastTick) / 1000, m.offlineSeconds);
+  if (elapsed <= 0) return s;
   const alwaysWet = m.pumpInterval === 0 ? new Set(s.irrigatedRows) : undefined;
+  // Long gaps (time away) run in coarser steps so loading stays quick.
+  const step = elapsed > COARSE_AFTER_SECONDS ? COARSE_STEP_SECONDS : 1;
   let next = s;
   let t = s.lastTick;
   while (elapsed > 0) {
-    const dt = Math.min(1, elapsed);
+    const dt = Math.min(step, elapsed);
     t += dt * 1000;
-    next = runAutomation({ ...next, plots: stepPlots(next.plots, dt, t, alwaysWet) }, t, dt, m);
+    next = runAutomation({ ...next, plots: stepPlots(next.plots, dt, t, alwaysWet, m) }, t, dt, m);
     elapsed -= dt;
   }
   next = { ...next, lastTick: now };
@@ -110,20 +130,86 @@ export function advance(s: GameState, now: number): GameState {
   return next;
 }
 
+// ---------- golden butterfly ----------
+const butterflyDelay = (m: Modifiers) =>
+  ((BUTTERFLY_MIN_SECONDS + rng() * (BUTTERFLY_MAX_SECONDS - BUTTERFLY_MIN_SECONDS)) * 1000) / m.butterflyRate;
+
+/** Butterflies only come while you're playing: they appear on live ticks, never in time away. */
+function tickButterfly(s: GameState, now: number, m: Modifiers): GameState {
+  const b = s.butterfly;
+  if (b.shownAt !== null) {
+    if (now - b.shownAt <= BUTTERFLY_STAY_SECONDS * 1000) return s;
+    return { ...s, butterfly: { ...b, shownAt: null, nextAt: now + butterflyDelay(m) } };
+  }
+  if (now < b.nextAt) return s;
+  return { ...s, butterfly: { ...b, shownAt: now, x: 12 + rng() * 76, y: 12 + rng() * 70 } };
+}
+
+export function butterflyVisible(s: GameState, now: number) {
+  return s.butterfly.shownAt !== null && now - s.butterfly.shownAt <= BUTTERFLY_STAY_SECONDS * 1000;
+}
+
+function catchButterfly(s: GameState, now: number): GameState {
+  if (!butterflyVisible(s, now)) return s;
+  const m = modifiers(s);
+  let next: GameState = {
+    ...s,
+    butterfly: { ...s.butterfly, shownAt: null, nextAt: now + butterflyDelay(m) },
+    stats: { ...s.stats, butterflies: s.stats.butterflies + 1 },
+  };
+  const roll = rng();
+  if (roll < 0.3) {
+    next = {
+      ...next,
+      plots: next.plots.map((p) => (p.plant && !isRipe(p.plant) ? { ...p, plant: { ...p.plant, growth: Math.min(1, p.plant.growth + BLOOM_GROWTH) } } : p)),
+    };
+    return notify(next, '🦋 Bloom! Every growing plant shot up.', 'good');
+  }
+  if (roll < 0.55) {
+    const until = now + SOAK_SECONDS * 1000;
+    next = {
+      ...next,
+      plots: next.plots.map((p) => ({ ...p, moisture: 1, soakedUntil: until, plant: p.plant && { ...p.plant, soakedThisCycle: true } })),
+    };
+    return notify(next, '🦋 Rain! The whole garden is soaked.', 'good');
+  }
+  if (roll < 0.85) {
+    const coins = Math.round(Math.max(PURSE_MIN, incomeEstimate(next, m) * PURSE_SECONDS));
+    return notify(earn(next, coins), `🦋 A purse of ${coins} coins!`, 'good');
+  }
+  const seed = weightedSeed(Object.values(PLANT_BY_ID).filter((p) => p.seedTier === 0).map((p) => p.id));
+  next = { ...next, seeds: addTo(next.seeds, seed, 2) };
+  return notify(next, `🦋 A gift of 2 ${PLANT_BY_ID[seed].fruitName.toLowerCase()} seeds!`, 'good');
+}
+
 // ---------- reducer ----------
+/** Every action, then any achievements it earned. */
 export function reducer(s: GameState, a: Action): GameState {
+  const next = reduce(s, a);
+  return next === s ? s : checkAchievements(next);
+}
+
+function reduce(s: GameState, a: Action): GameState {
   switch (a.type) {
-    case 'tick':
-      return advance(s, a.now);
+    case 'tick': {
+      const next = advance(s, a.now);
+      return tickButterfly(next, a.now, modifiers(next));
+    }
+
+    case 'catchButterfly':
+      return catchButterfly(advance(s, a.now), a.now);
+
+    case 'dismissAway':
+      return { ...s, awaySummary: null };
 
     case 'use':
       return useTool(advance(s, a.now), a.plotId, a.tool, a.seed, a.now, modifiers(s));
 
     case 'pullWeed':
-      return pullWeed(advance(s, a.now), a.plotId);
+      return pullWeed(advance(s, a.now), a.plotId, modifiers(s));
 
     case 'pullWeeds':
-      return pullWeeds(advance(s, a.now), a.plotIds);
+      return pullWeeds(advance(s, a.now), a.plotIds, modifiers(s));
 
     case 'buyHerbicide':
       if (!modifiers(s).canSpray) return notify(s, 'Buy the herbicide sprayer in the Shed first.', 'info');
@@ -182,8 +268,8 @@ export function reducer(s: GameState, a: Action): GameState {
       let next = advance(s, a.now);
       const ripe = next.plots.filter((p) => p.plant && isRipe(p.plant));
       if (ripe.length === 0) return notify(next, 'Nothing is ripe yet.', 'info');
-      const cap = modifiers(s).qualityCap;
-      for (const plot of ripe) next = harvest(next, next.plots.find((p) => p.id === plot.id)!, 'basket', cap);
+      const m = modifiers(s);
+      for (const plot of ripe) next = harvest(next, next.plots.find((p) => p.id === plot.id)!, 'basket', m);
       return next;
     }
 
@@ -200,9 +286,8 @@ export function reducer(s: GameState, a: Action): GameState {
       const isNew = !prev;
       const coins = isNew ? NEW_BUG_COINS[result.tier] : 0;
       return {
-        ...s,
+        ...earn(s, coins),
         fruits: addTo(s.fruits, a.fruitKey, -cost),
-        coins: s.coins + coins,
         collection: {
           ...s.collection,
           [result.bug.id]: { count: (prev?.count ?? 0) + 1, firstAt: prev?.firstAt ?? a.now },
@@ -230,8 +315,7 @@ export function reducer(s: GameState, a: Action): GameState {
       const earned = n * RELEASE_COINS[tierOf(bug)];
       return notify(
         {
-          ...s,
-          coins: s.coins + earned,
+          ...earn(s, earned),
           collection: { ...s.collection, [a.bugId]: { ...entry, count: entry.count - n } },
         },
         `Released ${n} ${bug.commonName} back to the wild (+${earned} coins).`,
@@ -252,7 +336,7 @@ export function reducer(s: GameState, a: Action): GameState {
         collection[id] = { ...entry, count: 1 };
       }
       if (released === 0) return notify(s, 'No duplicates to release.', 'info');
-      return notify({ ...s, coins: s.coins + earned, collection }, `Released ${released} bugs (+${earned} coins).`, 'good');
+      return notify({ ...earn(s, earned), collection }, `Released ${released} bugs (+${earned} coins).`, 'good');
     }
 
     case 'buySlot': {
@@ -291,7 +375,7 @@ export function reducer(s: GameState, a: Action): GameState {
       const n = Math.min(a.count, have);
       if (!parsed || n <= 0) return s;
       const earned = n * sellPrice(a.key, modifiers(s));
-      return { ...s, coins: s.coins + earned, fruits: addTo(s.fruits, a.key, -n) };
+      return { ...earn(s, earned), fruits: addTo(s.fruits, a.key, -n) };
     }
 
     case 'makeFertilizer': {
@@ -310,7 +394,7 @@ export function reducer(s: GameState, a: Action): GameState {
 
 // ---------- persistence ----------
 export function serialize(s: GameState): string {
-  const { notices: _n, noticeSeq: _q, lastSummon: _l, ...rest } = s;
+  const { notices: _n, noticeSeq: _q, lastSummon: _l, awaySummary: _a, ...rest } = s;
   return JSON.stringify(rest);
 }
 
@@ -346,7 +430,16 @@ export function deserialize(json: string | null, now: number): GameState {
     if (data?.version === 1) data = migrateV1(data);
     if (data?.version !== SAVE_VERSION) return newGame(now);
     const base = newGame(now);
-    const s: GameState = { ...base, ...data, notices: [], noticeSeq: 0, lastSummon: null };
+    const s: GameState = {
+      ...base,
+      ...data,
+      stats: { ...base.stats, ...data.stats },
+      butterfly: { ...base.butterfly, ...data.butterfly, shownAt: null },
+      notices: [],
+      noticeSeq: 0,
+      lastSummon: null,
+      awaySummary: null,
+    };
     // Drop anything that refers to plants or bugs that no longer exist.
     s.plots = s.plots.map(normalizePlot);
     s.seeds = Object.fromEntries(Object.entries(s.seeds).filter(([k]) => PLANT_BY_ID[k]));
@@ -355,7 +448,21 @@ export function deserialize(json: string | null, now: number): GameState {
     s.shop = { ...s.shop, slots: s.shop.slots.filter((sl) => PLANT_BY_ID[sl.plantId]) };
     const advanced = advance(s, now);
     const away = (now - s.lastTick) / 1000;
-    return away > 60 ? notify(advanced, `Welcome back! Your garden grew while you were away.`, 'info') : advanced;
+    if (away < AWAY_SUMMARY_SECONDS) return advanced;
+    const cap = modifiers(s).offlineSeconds;
+    const weeds = (x: GameState) => x.plots.reduce((a, p) => a + p.weeds, 0);
+    return {
+      ...advanced,
+      awaySummary: {
+        seconds: away,
+        capped: away > cap,
+        coins: advanced.stats.coinsEarned - s.stats.coinsEarned,
+        fruit: advanced.stats.fruitHarvested - s.stats.fruitHarvested,
+        weeds: Math.max(0, weeds(advanced) - weeds(s)),
+        ripe: advanced.plots.filter((p) => p.plant && isRipe(p.plant)).length,
+        barrowFull: modifiers(s).barrowCapacity > 0 && countFruit(advanced.barrow) >= modifiers(s).barrowCapacity,
+      },
+    };
   } catch {
     return newGame(now);
   }

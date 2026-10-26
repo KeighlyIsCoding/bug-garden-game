@@ -2,7 +2,7 @@ import { countFruit, harvest, isRipe, sellPrice } from './garden';
 import type { Modifiers } from './modifiers';
 import { TUMBLER_RESERVE } from './tuning';
 import type { GameState } from './types';
-import { addTo } from './util';
+import { addTo, earn } from './util';
 
 /** Pump: waters every irrigated row on its schedule. (Round-the-clock irrigation is handled in stepPlots.) */
 function runPump(s: GameState, t: number, m: Modifiers): GameState {
@@ -17,7 +17,7 @@ function runBarrow(s: GameState, t: number, m: Modifiers): GameState {
   let next: GameState = { ...s, barrowAt: t };
   for (const plot of s.plots) {
     if (countFruit(next.barrow) >= m.barrowCapacity) break;
-    if (plot.plant && isRipe(plot.plant)) next = harvest(next, next.plots.find((p) => p.id === plot.id)!, 'barrow', m.qualityCap);
+    if (plot.plant && isRipe(plot.plant)) next = harvest(next, next.plots.find((p) => p.id === plot.id)!, 'barrow', m);
   }
   return next;
 }
@@ -27,7 +27,7 @@ function runStand(s: GameState, dt: number, m: Modifiers): GameState {
   if (m.standRate === 0 || s.stand.qualities.length === 0) return s;
   let carry = s.stand.carry + m.standRate * dt;
   let fruits = s.fruits;
-  let coins = s.coins;
+  let coins = 0;
   while (carry >= 1) {
     const key = Object.keys(fruits)
       .filter((k) => s.stand.qualities.some((q) => k.endsWith(':' + q)))
@@ -40,7 +40,7 @@ function runStand(s: GameState, dt: number, m: Modifiers): GameState {
     coins += sellPrice(key, m);
     carry -= 1;
   }
-  return { ...s, fruits, coins, stand: { ...s.stand, carry } };
+  return earn({ ...s, fruits, stand: { ...s.stand, carry } }, coins);
 }
 
 /** Compost tumbler (level 2): keeps a reserve for top-dressing and turns the rest into fertilizer. */
