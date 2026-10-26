@@ -4,14 +4,16 @@ import { BugModal } from './components/BugBits';
 import { Bugdex } from './components/Bugdex';
 import { Garden } from './components/Garden';
 import { Market } from './components/Market';
+import { Shed } from './components/Shed';
 import { Summon } from './components/Summon';
 import { formatNum } from './format';
 import { useGame } from './useGame';
 
-type Tab = 'garden' | 'summon' | 'dex' | 'market';
+type Tab = 'garden' | 'shed' | 'summon' | 'dex' | 'market';
 
 const TABS: { id: Tab; icon: string; label: string }[] = [
   { id: 'garden', icon: '🌱', label: 'Garden' },
+  { id: 'shed', icon: '🛖', label: 'Shed' },
   { id: 'summon', icon: '🎰', label: 'Summon' },
   { id: 'dex', icon: '📖', label: 'Bugdex' },
   { id: 'market', icon: '🧺', label: 'Market' },
@@ -54,6 +56,7 @@ export default function App() {
 
       <main>
         {tab === 'garden' && <Garden state={state} dispatch={dispatch} />}
+        {tab === 'shed' && <Shed state={state} dispatch={dispatch} />}
         {tab === 'summon' && <Summon state={state} dispatch={dispatch} onOpenBug={setOpenBug} />}
         {tab === 'dex' && <Bugdex state={state} dispatch={dispatch} onOpenBug={setOpenBug} />}
         {tab === 'market' && <Market state={state} dispatch={dispatch} />}

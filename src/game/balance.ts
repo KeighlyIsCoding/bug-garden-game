@@ -4,7 +4,7 @@
  */
 import { isRipe } from './garden';
 import { PLANTS, SEED_PRICE } from './plants';
-import { capsuleCost, newGame, reducer } from './state';
+import { UPGRADES, capsuleCost, irrigationRowPrice, isUnlocked, landPrice, level, nextCost, nextLand, newGame, reducer } from './state';
 import type { Action, GameState } from './types';
 
 export interface BotOptions {
@@ -57,17 +57,30 @@ function checkIn(s: GameState, now: number, tends: boolean): { s: GameState; har
       if (seed) act({ type: 'use', plotId: plot.id, tool: 'plant', seed, now });
     }
   }
-  // Sell Normal fruit for coins; save better fruit for the capsule machine (more luck), releasing duplicates for coins.
+  // A balanced player: sell all Normal fruit and half the Fine for coins; summon with the rest (more luck).
   const cost = () => capsuleCost(Object.keys(s.collection).length);
-  for (const [key, n] of Object.entries(s.fruits)) if (key.endsWith(':normal')) act({ type: 'sellFruit', key, count: n });
+  for (const [key, n] of Object.entries(s.fruits)) {
+    if (key.endsWith(':normal')) act({ type: 'sellFruit', key, count: n });
+    else if (key.endsWith(':fine') && n >= 2) act({ type: 'sellFruit', key, count: Math.floor(n / 2) });
+  }
   for (const key of Object.keys(s.fruits)) while ((s.fruits[key] ?? 0) >= cost()) act({ type: 'summon', fruitKey: key, now });
   act({ type: 'releaseAllDuplicates' });
-  let bought = true;
-  while (bought) {
-    const n = s.plots.length;
-    act({ type: 'buyLand', now });
-    bought = s.plots.length > n;
+  // Spend on whatever is cheapest: land, the next level of an upgrade, or a drip line.
+  for (;;) {
+    const options: { cost: number; action: Action }[] = [];
+    if (nextLand(s.plots)) options.push({ cost: landPrice(s.plots.length), action: { type: 'buyLand', now } });
+    for (const u of UPGRADES) {
+      const cost = nextCost(s, u.id);
+      if (cost !== null && isUnlocked(s, u)) options.push({ cost, action: { type: 'buyUpgrade', id: u.id, now } });
+    }
+    const dry = [...new Set(s.plots.map((p) => p.y))].find((y) => !s.irrigatedRows.includes(y));
+    if (level(s, 'pump') > 0 && dry !== undefined)
+      options.push({ cost: irrigationRowPrice(s.irrigatedRows.length), action: { type: 'irrigateRow', row: dry, now } });
+    const best = options.sort((a, b) => a.cost - b.cost)[0];
+    if (!best || best.cost > s.coins) break;
+    act(best.action);
   }
+  if (Object.keys(s.barrow).length) act({ type: 'emptyBarrow', now });
   return { s, harvested };
 }
 
