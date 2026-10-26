@@ -42,6 +42,8 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'butterfly-1', icon: '🦋', name: 'First butterfly', desc: 'Catch a golden butterfly.', done: (s) => s.stats.butterflies >= 1 },
   ...steps('butterfly', '🦋', (n) => `${n} butterflies`, (n) => `Catch ${n} golden butterflies.`, [25], (s) => s.stats.butterflies),
   { id: 'heirloom-1', icon: '🏺', name: 'Heirloom', desc: 'Harvest Heirloom fruit.', done: (s) => s.stats.heirlooms > 0 },
+  { id: 'season-2', icon: '🌅', name: 'New season', desc: 'Start your second season.', done: (s) => s.season.number >= 2 },
+  { id: 'season-5', icon: '🌄', name: 'Seasoned', desc: 'Reach season 5.', done: (s) => s.season.number >= 5 },
 ];
 
 /** Award any newly earned achievements, with a notice for each. */

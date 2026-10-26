@@ -77,6 +77,18 @@ export const UPGRADES: UpgradeDef[] = [
     levels: [{ cost: 2_500, effect: 'herbicide for sale' }],
   },
   {
+    id: 'patrol',
+    name: 'Beetle patrol',
+    icon: '🪲',
+    category: 'weed',
+    summary: 'Ground beetles patrol the garden and eat a weed from every plot on each round. No compost: the beetles eat them.',
+    requires: { id: 'glove', level: 2 },
+    levels: [
+      { cost: 60_000, effect: 'a round every 2 minutes' },
+      { cost: 240_000, effect: 'a round every minute' },
+    ],
+  },
+  {
     id: 'basket',
     name: 'Harvest basket',
     icon: '🧺',

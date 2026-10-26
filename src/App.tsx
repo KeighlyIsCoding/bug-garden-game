@@ -62,6 +62,11 @@ export default function App() {
           </span>
           <span className="stat" title="Fertilizer">🧪 {state.fertilizer}</span>
           <span className="stat" title="Compost">🍂 {formatNum(state.compost)}</span>
+          {state.season.goldenSeeds > 0 && (
+            <span className="stat" title={`Season ${state.season.number}: Golden Seeds`}>
+              🌟 {state.season.goldenSeeds}
+            </span>
+          )}
           <span className="stat" title="Species discovered">
             📖 {owned}/{BUGS.length}
           </span>
@@ -84,7 +89,7 @@ export default function App() {
         {tab === 'summon' && <Summon state={state} dispatch={dispatch} onOpenBug={setOpenBug} />}
         {tab === 'dex' && <Bugdex state={state} dispatch={dispatch} onOpenBug={setOpenBug} />}
         {tab === 'market' && <Market state={state} dispatch={dispatch} />}
-        {tab === 'journal' && <Journal state={state} />}
+        {tab === 'journal' && <Journal state={state} dispatch={dispatch} />}
       </main>
 
       <footer className="footer muted tiny">

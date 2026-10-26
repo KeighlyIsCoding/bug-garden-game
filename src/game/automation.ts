@@ -50,6 +50,12 @@ function runTumbler(s: GameState, m: Modifiers): GameState {
   return { ...s, compost: s.compost - n * m.compostPerFertilizer, fertilizer: s.fertilizer + n };
 }
 
+/** Beetle patrol: every round, one weed less on every plot. */
+function runPatrol(s: GameState, t: number, m: Modifiers): GameState {
+  if (t - s.patrolAt < m.patrolInterval * 1000) return s;
+  return { ...s, patrolAt: t, plots: s.plots.map((p) => (p.weeds > 0 ? { ...p, weeds: p.weeds - 1 } : p)) };
+}
+
 export function runAutomation(s: GameState, t: number, dt: number, m: Modifiers): GameState {
-  return runTumbler(runStand(runBarrow(runPump(s, t, m), t, m), dt, m), m);
+  return runPatrol(runTumbler(runStand(runBarrow(runPump(s, t, m), t, m), dt, m), m), t, m);
 }

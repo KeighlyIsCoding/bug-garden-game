@@ -86,6 +86,18 @@ export interface AwaySummary {
   barrowFull: boolean;
 }
 
+/** Prestige: seasons end for Golden Seeds, which boost the garden or buy permanent perks. */
+export interface Season {
+  /** 1 for the first season. */
+  number: number;
+  /** Unspent Golden Seeds (each one boosts growth and yield). */
+  goldenSeeds: number;
+  totalGoldenSeeds: number;
+  perks: string[];
+  /** Lifetime coins earned when this season began, so season earnings = coinsEarned − this. */
+  startEarned: number;
+}
+
 export interface GameState {
   version: number;
   lastTick: number;
@@ -111,12 +123,15 @@ export interface GameState {
   barrow: Record<string, number>;
   /** Last time the wheelbarrow went round. */
   barrowAt: number;
+  /** Last time the beetle patrol went round. */
+  patrolAt: number;
   /** Fruit stand: which qualities it sells, and the fraction of a sale carried between ticks. */
   stand: { qualities: Quality[]; carry: number };
   stats: Stats;
   /** Achievement ids earned. */
   achievements: string[];
   butterfly: Butterfly;
+  season: Season;
   // transient (not saved)
   awaySummary: AwaySummary | null;
   notices: Notice[];
@@ -143,6 +158,8 @@ export type Action =
   | { type: 'harvestAll'; now: number }
   | { type: 'catchButterfly'; now: number }
   | { type: 'dismissAway' }
+  | { type: 'newSeason'; now: number }
+  | { type: 'buyPerk'; id: string }
   | { type: 'summon'; fruitKey: string; now: number }
   | { type: 'release'; bugId: string; count: number }
   | { type: 'releaseAllDuplicates' }

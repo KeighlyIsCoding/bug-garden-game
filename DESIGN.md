@@ -1,8 +1,13 @@
 # Bug Garden — Game Design Document
 
-A cozy, web-based **gachapon bug-collecting game**. You tend a garden, harvest fruit, and feed
-that fruit into a capsule machine to summon real insect species. Every bug is a real species
-with its description, photo and conservation status pulled from Wikipedia.
+A cozy, web-based **idle gardening + gachapon bug-collecting game**. You tend a garden, harvest
+fruit, and feed that fruit into a capsule machine to summon real insect species. Every bug is a real
+species with its description, photo and conservation status pulled from Wikipedia.
+
+The garden is an idle / incremental game: plants are perennial, tools upgrade from one plot to big
+squares and then to automation, land gets steadily more expensive, and **New Season** resets trade the
+garden for permanent Golden Seeds so each run goes further. Automation keeps a garden producing on its
+own; hands-on care (weeding, soaking, fertilizer) roughly doubles it and unlocks the best fruit.
 
 - **Platform:** browser (desktop + mobile widths)
 - **Stack:** React 18 + TypeScript, built with Vite. No backend; progress is saved in `localStorage`.
@@ -14,23 +19,25 @@ with its description, photo and conservation status pulled from Wikipedia.
 ## 1. Core loop
 
 ```
- plant seeds ──► tend (water / pull weeds / fertilize) ──► harvest fruit
-      ▲                                                   │
-      │                                                   ▼
- buy / find seeds ◄── coins ◄── release duplicates ◄── summon bugs (gachapon)
-                                                          │
-                                                          ▼
-                                                 fill the Bugdex
+ plant seeds ──► tend (water / weed / fertilize) ──► harvest fruit ──► sell ──► coins
+      ▲                │  (upgrades automate it)          │                    │
+      │                ▼                                  ▼                    ▼
+ buy / find seeds   Shed upgrades ◄────────────── summon bugs ──► Bugdex ──► garden bonuses
+
+ land & upgrades ──► 24+ plots ──► New Season ──► Golden Seeds (+growth, +yield, perks) ──► next run
 ```
 
-1. **Garden** — plant seeds in plots and keep the plants healthy until they bear fruit.
-2. **Harvest** — ripe plants give fruit (and sometimes seeds). Better care gives better fruit.
-3. **Summon** — put a fruit in the capsule machine. The fruit decides *which bugs can appear*
-   and *how lucky the pull is*.
-4. **Collect** — new species are added to the Bugdex. Duplicates can be released for coins.
-5. **Grow** — coins buy seeds, fertilizer and more garden plots.
+1. **Garden** — plant seeds in plots and keep the plants healthy until they bear fruit. Plants are
+   perennial and regrow after every harvest.
+2. **Harvest** — ripe plants give fruit (and sometimes seeds). Better care gives more and better fruit.
+3. **Sell** — fruit is the main source of coins: by hand or through the fruit stand.
+4. **Summon** — put fruit in the capsule machine. The fruit decides *which bugs can appear* and *how
+   lucky the pull is*. The machine gets hungrier as the Bugdex fills.
+5. **Collect** — new species are added to the Bugdex and each one boosts the garden.
+6. **Grow** — coins buy land, Shed upgrades, seeds and supplies.
+7. **New Season** — trade a big garden for Golden Seeds and start again, faster.
 
-The long-term goal is completing the Bugdex: every species, every order.
+The long-term goals are the full 48-plot garden and a complete Bugdex.
 
 ---
 
@@ -114,8 +121,9 @@ split into thirds:
 Wild-fruit seeds are fixed: Apple/Strawberry common, Mango uncommon, Starfruit rare.
 
 ### 3.3 Fruit quality
-Care is measured continuously while a plant grows: the fraction of time it was **watered and
-weed-free**. At harvest:
+Care is measured continuously while a plant grows. Every second counts in full when the plot is
+**watered and weed-free**, 65% when it's watered but weedy, and not at all when it's dry. Care is the
+average over the crop. At harvest:
 
 | Quality  | Requirement                                                        | Luck bonus | Fruit per harvest | Sell × |
 |----------|--------------------------------------------------------------------|------------|-------------------|--------|
@@ -147,7 +155,7 @@ Each plot costs `80 × 1.2^(plots owned − 6)` coins. A plot holds at most one 
 | **Dig up** | Removes the plant (+2 compost). Press twice within 3 s to confirm. |
 | **Top-dress** | 2 compost → +25% vigor. |
 | **Water**  | Refills moisture to 100% for every plot the watering can reaches (1×1, up to 4×4 with upgrades). Free and unlimited, but moisture drains over ~45 s. Dry plants grow at 15% speed. Hand-watering also **soaks** plots: +20% growth for 60 s. |
-| **Weed**   | Click and drag a weed in the plot to pull it out by hand (there is no weed tool). Keyboard: Tab to a weed and press Enter; each weed takes 1–4 presses, with "keep pulling" updates until it comes out. With the **glove**, one pull clears the whole plot, then a 2×2 or 3×3 square, and keyboard players share one tug count across that square. Each weed slows growth by 25%. Pulled weeds give **compost**, and occasionally a random **wild seed** turns up in the soil. A plain click on a weed (no drag) acts on the plot underneath. |
+| **Weed**   | Click and drag a weed in the plot to pull it out by hand (there is no weed tool). Keyboard: Tab to a weed and press Enter; each weed takes 1–4 presses, with "keep pulling" updates until it comes out. With the **glove**, one pull clears the whole plot, then a 2×2 or 3×3 square, and keyboard players share one tug count across that square. Each weed slows growth by 15% and stops the crop reaching Perfect quality. Pulled weeds give **compost**, and occasionally a random **wild seed** turns up in the soil. A plain click on a weed (no drag) acts on the plot underneath. |
 | **Clip**   | (Clippers) Clears weeds instantly from a plot (2×2 at level 2). No compost, and the roots stay: weeds come back twice as fast there for 3 minutes. |
 | **Spray**  | (Herbicide sprayer) One dose kills the weeds and keeps new ones 3× slower for 10 minutes, but the crop growing there drops a quality tier. Doses cost 25 at the market. |
 | **Fertilize** | Uses 1 fertilizer: +70% growth speed for 90 s and qualifies the fruit for *Perfect*. 3 compost → 1 fertilizer. |
@@ -165,10 +173,12 @@ Plants never die, but each harvest wears **vigor** down by 6%, to a floor of 40%
 fruit per harvest, so old plants are worth top-dressing or replacing.
 
 ```
-growth/sec = 1/growTime × (moist ? 1 : 0.15) × (1 − 0.25·weeds) × (fertilized ? 1.7 : 1)
+growth/sec = 1/growTime × (moist ? 1 : 0.15) × (1 − 0.15·weeds) × (fertilized ? 1.7 : 1)
+             × (soaked ? 1.2 : 1) × Bugdex growth bonus × (1 + 0.05·Golden Seeds)
 ```
 
-Weeds sprout on any plot at random (on average once every ~80 s per plot, max 3).
+Weeds sprout on any plot at random (on average once every ~80 s per plot, max 3). Beetles in the
+Bugdex, herbicide and the beetle patrol hold them back; nothing stops them for good.
 
 ### 4.4 The Shed (upgrades)
 Upgrades are bought level by level in the Shed tab; each level costs several times the last.
@@ -182,6 +192,7 @@ Hovering or focusing a plot outlines the square the current tool would reach.
 | Gardening glove | 300 / 3K / 20K | One pull clears the plot → a 2×2 → a 3×3 square |
 | Clippers | 800 / 7K | Clip tool, one plot → 2×2 |
 | Herbicide sprayer | 2.5K (needs clippers) | Herbicide for sale; Spray tool |
+| Beetle patrol | 60K / 240K (needs the 2×2 glove) | Eats one weed from every plot every 2 min → every minute. No compost. |
 | Harvest basket | 250 / 2.5K | Harvest reach 2×2 → 3×3 |
 | Wheelbarrow | 1.5K / 12K / 80K (needs the 2×2 basket) | Harvest all button; picks ripe plants into the barrow every 30/15/6 s until it holds 40/120/400. A full barrow stops until you tip it into the basket. |
 | Trowel | 500 | 50% chance to get the seed back when digging up |
@@ -218,6 +229,33 @@ Hovering or focusing a plot outlines the square the current tool would reach.
   butterflies caught, Heirloom fruit. Each one adds +1% fruit yield for good.
 - The top bar shows **coins earned per second** over the last half-minute.
 
+### 4.6 New Season (prestige)
+Once the garden has **24 plots**, you can end the season (two presses to confirm, in the Journal).
+- You earn **Golden Seeds** = `floor(sqrt(coins earned this season / 400))`.
+- **Kept:** Bugdex, pity, achievements, lifetime stats, Golden Seeds, perks.
+- **Reset:** land (back to 6 plots), coins, Shed upgrades, seeds, fruit, fertilizer, compost, herbicide.
+- Every **unspent** Golden Seed gives +5% growth and +5% fruit yield.
+- **Perks** cost Golden Seeds and last for good:
+
+  | Perk | Cost | Effect |
+  |---|---|---|
+  | Head start: watering can | 3 | Each season starts with the 2×2 can |
+  | Long nap | 4 | +4 h of growth while you're away |
+  | Head start: land | 6 | Each season starts with 12 plots |
+  | Head start: show ribbon | 8 | Each season starts with Prize fruit unlocked |
+  | Old pipes | 10 | Each season starts with the pump (every 10 min) and a drip line on row 1 |
+
+### 4.7 Balance targets
+`src/game/balance.test.ts` plays the real reducer with simulated players and checks:
+- **Early game:** first new plot within 3 minutes; 12 plots in 4–25 minutes.
+- **Care matters:** a neglected garden yields under 35% per plot of a tended one.
+- **Automation pays:** a fully automated late garden (no hand care) makes 30–60% of a perfectly tended
+  one (measured ≈ 41%).
+- **The long game:** a strong player reaches the full 48-plot garden over several seasons in 8–18 hours
+  of play (measured ≈ 13 h, 6 seasons). The simulated player checks in every 5 seconds, so real players
+  take longer.
+- **The Bugdex stays a goal:** 40–150 species after the first hour.
+
 ---
 
 ## 5. Summoning (the capsule machine)
@@ -250,13 +288,17 @@ when an Epic+ bug appears.
 |-----------------------------|-------|
 | New species discovered      | 5 / 10 / 20 / 40 / 80 / 150 by tier |
 | Releasing a duplicate       | 2 / 4 / 8 / 16 / 32 / 60 by tier |
-| Selling a fruit             | 3 / 8 / 16 by fruit tier, × 1 / 1.5 / 2.5 by quality, × reputation |
+| Selling a fruit             | 3 / 8 / 16 by fruit tier, × 1 / 1.5 / 2.5 / 3.5 / 5 by quality, × reputation and crickets |
+| Golden butterfly purse      | ~2 minutes of the garden's income |
 
 | Sink                 | Cost |
 |----------------------|------|
 | Seeds                | 5 (common) / 12 (uncommon) / 30 (rare) |
 | Fertilizer           | 8 |
 | New plot             | 80 × 1.2^(plots owned − 6) |
+| Shed upgrades        | 150 … 250K per level (see 4.4) |
+| Drip lines           | 3K × 1.7^(lines owned) |
+| Herbicide            | 25 per dose |
 | Shop refresh         | 5 (free refresh every 3 min) |
 
 **Shop:** always sells Apple and Strawberry seeds and fertilizer, plus 4 rotating slots drawn
@@ -275,9 +317,10 @@ by seed tier (Common 60%, Uncommon 30%, Rare 10%).
 | **Bugdex**    | All species as cards (silhouettes for undiscovered), filter by order/rarity/owned, progress per order. Detail view with Wikipedia photo, extract, status, owned count, release button, link to article. |
 | **Shed**      | Upgrades by category (watering, weeding, harvesting, soil & quality, market) and drip lines. |
 | **Market**    | Buy seeds and fertilizer; sell fruit (and choose what the fruit stand sells); compost → fertilizer. |
-| **Journal**   | Bugdex bonuses by order, and achievements. |
+| **Journal**   | New Season (Golden Seeds, perks), Bugdex bonuses by order, and achievements. |
 
-A top bar shows coins, fertilizer, compost and Bugdex progress on every screen.
+A top bar shows coins (with coins earned per second), fertilizer, compost, Golden Seeds and Bugdex
+progress on every screen. The golden butterfly can appear over any screen.
 
 ---
 
@@ -303,6 +346,6 @@ Text and images are from Wikipedia under CC BY-SA; the Bugdex credits and links 
 
 ---
 
-## 10. Out of scope (v1)
-Accounts / cloud saves, trading, sound, seasons and weather, bug "habitats" in the garden.
-These are natural next steps.
+## 10. Out of scope
+Accounts / cloud saves, trading, sound, weather, bug "habitats" in the garden. These are natural
+next steps.

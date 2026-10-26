@@ -21,6 +21,7 @@ import {
 } from './garden';
 import { modifiers, type Modifiers } from './modifiers';
 import { PLANT_BY_ID, SEED_PRICE, fruitKey, parseFruitKey } from './plants';
+import { buyPerk, newSeason } from './season';
 import { UPGRADE_BY_ID, isUnlocked, level, nextCost } from './upgrades';
 import {
   FERTILIZER_PRICE,
@@ -55,6 +56,7 @@ export { setRng } from './util';
 export { areaCells, careRatio, countFruit, expectedYield, growthRate, incomeEstimate, isRipe, nextLand, qualityFor, sellPrice, stageOf } from './garden';
 export { ACHIEVEMENTS, ACHIEVEMENT_BONUS } from './achievements';
 export { ORDER_BONUS, orderProgress } from './bonuses';
+export { PERKS, canEndSeason, goldenSeedsFor, hasPerk, seasonCoins } from './season';
 export { modifiers, type Modifiers } from './modifiers';
 export { UPGRADES, UPGRADE_BY_ID, isUnlocked, level, nextCost, type UpgradeDef } from './upgrades';
 
@@ -96,10 +98,12 @@ export function newGame(now: number): GameState {
     irrigatedAt: now,
     barrow: {},
     barrowAt: now,
+    patrolAt: now,
     stand: { qualities: ['normal'], carry: 0 },
     stats: { fruitHarvested: 0, coinsEarned: 0, weedsPulled: 0, butterflies: 0, heirlooms: 0 },
     achievements: [],
     butterfly: { nextAt: now + BUTTERFLY_FIRST_SECONDS * 1000, shownAt: null, x: 50, y: 50 },
+    season: { number: 1, goldenSeeds: 0, totalGoldenSeeds: 0, perks: [], startEarned: 0 },
     awaySummary: null,
     notices: [],
     noticeSeq: 0,
@@ -201,6 +205,12 @@ function reduce(s: GameState, a: Action): GameState {
 
     case 'dismissAway':
       return { ...s, awaySummary: null };
+
+    case 'newSeason':
+      return newSeason(advance(s, a.now), newGame(a.now));
+
+    case 'buyPerk':
+      return buyPerk(s, a.id);
 
     case 'use':
       return useTool(advance(s, a.now), a.plotId, a.tool, a.seed, a.now, modifiers(s));
@@ -434,6 +444,7 @@ export function deserialize(json: string | null, now: number): GameState {
       ...base,
       ...data,
       stats: { ...base.stats, ...data.stats },
+      season: { ...base.season, ...data.season },
       butterfly: { ...base.butterfly, ...data.butterfly, shownAt: null },
       notices: [],
       noticeSeq: 0,

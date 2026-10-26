@@ -2,9 +2,9 @@
  * Simulated players for balance testing. They play through the real reducer, so pacing numbers
  * reflect the actual rules. Used by balance.test.ts; also handy for quick experiments.
  */
-import { isRipe } from './garden';
+import { isRipe, newPlant } from './garden';
 import { PLANTS, SEED_PRICE } from './plants';
-import { UPGRADES, capsuleCost, irrigationRowPrice, isUnlocked, landPrice, level, nextCost, nextLand, newGame, reducer } from './state';
+import { UPGRADES, canEndSeason, capsuleCost, goldenSeedsFor, irrigationRowPrice, isUnlocked, landPrice, level, nextCost, nextLand, newGame, reducer } from './state';
 import type { Action, GameState } from './types';
 
 export interface BotOptions {
@@ -84,8 +84,8 @@ function checkIn(s: GameState, now: number, tends: boolean): { s: GameState; har
   return { s, harvested };
 }
 
-export function simulate(opts: BotOptions, start = 0): SimResult {
-  let s = newGame(start);
+export function simulate(opts: BotOptions, start = 0, from?: GameState): SimResult {
+  let s = from ?? newGame(start);
   const plotsAt: Record<number, number> = { [s.plots.length]: 0 };
   const fruitLog: SimResult['fruitLog'] = [];
   for (let t = opts.every; t <= opts.duration; t += opts.every) {
@@ -101,4 +101,49 @@ export function simulate(opts: BotOptions, start = 0): SimResult {
 export function timeToPlots(r: SimResult, n: number): number {
   const hits = Object.entries(r.plotsAt).filter(([k]) => Number(k) >= n).map(([, t]) => t);
   return hits.length ? Math.min(...hits) : Infinity;
+}
+
+/** A late-game garden: 24 plots of apples, every upgrade maxed, every row irrigated. */
+export function lateGame(start = 0): GameState {
+  let s: GameState = { ...newGame(start), coins: 1e12 };
+  for (let i = 0; i < 18; i++) s = reducer(s, { type: 'buyLand', now: start });
+  const upgrades = Object.fromEntries(UPGRADES.map((u) => [u.id, u.levels.length]));
+  return {
+    ...s,
+    coins: 0,
+    upgrades,
+    irrigatedRows: [0, 1, 2, 3],
+    fertilizer: 0,
+    compost: 0,
+    notices: [],
+    plots: s.plots.map((p) => ({ ...p, weeds: 0, moisture: 1, plant: { ...newPlant('apple'), growth: 0.5 } })),
+  };
+}
+
+/** Fruit harvested between `from` and `to` seconds into a run started from `state`. */
+export function fruitBetween(opts: Omit<BotOptions, 'duration'>, state: GameState, from: number, to: number): number {
+  const a = simulate({ ...opts, duration: from }, 0, state).state.stats.fruitHarvested;
+  const b = simulate({ ...opts, duration: to }, 0, state).state.stats.fruitHarvested;
+  return b - a;
+}
+
+/**
+ * Several seasons in a row. The bot ends a season once it has 24+ plots and the reset would at least
+ * double its lifetime Golden Seeds (and give 8 or more), then buys head-start perks.
+ */
+export function simulateSeasons(opts: BotOptions): { state: GameState; seasons: { number: number; endedAt: number; plots: number; gained: number }[]; firstFullGarden: number } {
+  let s = newGame(0);
+  const seasons: { number: number; endedAt: number; plots: number; gained: number }[] = [];
+  let firstFullGarden = Infinity;
+  for (let t = opts.every; t <= opts.duration; t += opts.every) {
+    s = { ...checkIn(s, t * 1000, opts.tends).s, notices: [] };
+    if (s.plots.length >= 48 && firstFullGarden === Infinity) firstFullGarden = t;
+    const gain = goldenSeedsFor(s);
+    if (canEndSeason(s) && gain >= Math.max(8, s.season.totalGoldenSeeds) && s.plots.length < 48) {
+      seasons.push({ number: s.season.number, endedAt: t, plots: s.plots.length, gained: gain });
+      s = reducer(s, { type: 'newSeason', now: t * 1000 });
+      for (const id of ['big-start', 'early-can', 'old-pipes']) s = reducer(s, { type: 'buyPerk', id });
+    }
+  }
+  return { state: s, seasons, firstFullGarden };
 }
