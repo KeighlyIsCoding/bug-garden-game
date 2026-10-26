@@ -117,11 +117,15 @@ Wild-fruit seeds are fixed: Apple/Strawberry common, Mango uncommon, Starfruit r
 Care is measured continuously while a plant grows: the fraction of time it was **watered and
 weed-free**. At harvest:
 
-| Quality  | Requirement                               | Luck bonus | Fruit per harvest |
-|----------|-------------------------------------------|------------|-------------------|
-| Normal   | —                                         | +0         | 1                 |
-| Fine     | care ≥ 60%                                | +0.25      | 2                 |
-| Perfect  | care ≥ 90% **and** fertilized this cycle  | +0.6       | 3                 |
+| Quality  | Requirement                                                        | Luck bonus | Fruit per harvest | Sell × |
+|----------|--------------------------------------------------------------------|------------|-------------------|--------|
+| Normal   | —                                                                  | +0         | 1                 | 1      |
+| Fine     | care ≥ 60%                                                         | +0.25      | 2                 | 1.5    |
+| Perfect  | care ≥ 90% **and** fertilized this cycle                           | +0.6       | 3                 | 2.5    |
+| Prize    | *Show ribbon* unlock; care ≥ 95%, fertilized, hand-watered this cycle | +0.9    | 4                 | 3.5    |
+| Heirloom | *Heirloom stock* unlock; Prize conditions, care ≥ 98%, vigor ≥ 80% | +1.3       | 5                 | 5      |
+
+Herbicide sprayed during a crop drops its quality one tier (a Normal crop yields half instead).
 
 Fruit per harvest is multiplied by the plant's **vigor** (see 4.3) and rounded randomly, so 2.4 fruit
 pays 2 or 3 with the right average.
@@ -143,7 +147,9 @@ Each plot costs `80 × 1.2^(plots owned − 6)` coins. A plot holds at most one 
 | **Dig up** | Removes the plant (+2 compost). Press twice within 3 s to confirm. |
 | **Top-dress** | 2 compost → +25% vigor. |
 | **Water**  | Refills moisture to 100% for every plot the watering can reaches (1×1, up to 4×4 with upgrades). Free and unlimited, but moisture drains over ~45 s. Dry plants grow at 15% speed. Hand-watering also **soaks** plots: +20% growth for 60 s. |
-| **Weed**   | Click and drag a weed in the plot to pull it out by hand (there is no weed tool). Keyboard: Tab to a weed and press Enter; each weed takes 1–4 presses, with "keep pulling" updates until it comes out. Each weed slows growth by 25%. Weeds give **compost**, and occasionally a random **wild seed** turns up in the soil. |
+| **Weed**   | Click and drag a weed in the plot to pull it out by hand (there is no weed tool). Keyboard: Tab to a weed and press Enter; each weed takes 1–4 presses, with "keep pulling" updates until it comes out. With the **glove**, one pull clears the whole plot, then a 2×2 or 3×3 square, and keyboard players share one tug count across that square. Each weed slows growth by 25%. Pulled weeds give **compost**, and occasionally a random **wild seed** turns up in the soil. A plain click on a weed (no drag) acts on the plot underneath. |
+| **Clip**   | (Clippers) Clears weeds instantly from a plot (2×2 at level 2). No compost, and the roots stay: weeds come back twice as fast there for 3 minutes. |
+| **Spray**  | (Herbicide sprayer) One dose kills the weeds and keeps new ones 3× slower for 10 minutes, but the crop growing there drops a quality tier. Doses cost 25 at the market. |
 | **Fertilize** | Uses 1 fertilizer: +70% growth speed for 90 s and qualifies the fruit for *Perfect*. 3 compost → 1 fertilizer. |
 | **Harvest** | Picks ripe fruit (see 3.3) from every ripe plot the basket reaches (1×1, up to 3×3). Plants are perennial: after a harvest they drop back to a sprout and regrow. Chance of a seed drop. |
 
@@ -171,8 +177,15 @@ Hovering or focusing a plot outlines the square the current tool would reach.
 | Watering can | 150 / 1.2K / 9K | Water reach 2×2 → 3×3 → 4×4 |
 | Irrigation pump | 4K … 250K (needs the 4×4 can) | Waters irrigated rows every 10 min → 5 min → 2 min → 45 s → around the clock. Never soaks. |
 | Drip lines | 3K × 1.7^(lines owned) each | A garden row the pump waters |
+| Gardening glove | 300 / 3K / 20K | One pull clears the plot → a 2×2 → a 3×3 square |
+| Clippers | 800 / 7K | Clip tool, one plot → 2×2 |
+| Herbicide sprayer | 2.5K (needs clippers) | Herbicide for sale; Spray tool |
 | Harvest basket | 250 / 2.5K | Harvest reach 2×2 → 3×3 |
 | Wheelbarrow | 1.5K / 12K / 80K (needs the 2×2 basket) | Harvest all button; picks ripe plants into the barrow every 30/15/6 s until it holds 40/120/400. A full barrow stops until you tip it into the basket. |
+| Trowel | 500 | 50% chance to get the seed back when digging up |
+| Compost tumbler | 3K / 25K | Fertilizer costs 2 compost; then compost above 10 turns into fertilizer by itself |
+| Show ribbon | 15K | Unlocks Prize fruit |
+| Heirloom stock | 120K (needs the ribbon) | Unlocks Heirloom fruit |
 | Fruit stand | 600 / 5K / 30K | Auto-sells the qualities you tick in the Market, 0.5/1.5/4 fruit per second |
 | Market reputation | 400 × 4^n, 5 levels | +25% sell price per level |
 
@@ -231,7 +244,7 @@ by seed tier (Common 60%, Uncommon 30%, Rare 10%).
 | **Garden**    | 6-wide plot grid with a "Buy land" tile. Select a plot to see moisture, weeds, growth, care, vigor; top-dress and dig up. Seed pouch to plant. |
 | **Summon**    | Capsule machine, fruit basket with effects and odds table, pity meter, reveal animation. |
 | **Bugdex**    | All species as cards (silhouettes for undiscovered), filter by order/rarity/owned, progress per order. Detail view with Wikipedia photo, extract, status, owned count, release button, link to article. |
-| **Shed**      | Upgrades by category (watering, harvesting, market) and drip lines. |
+| **Shed**      | Upgrades by category (watering, weeding, harvesting, soil & quality, market) and drip lines. |
 | **Market**    | Buy seeds and fertilizer; sell fruit (and choose what the fruit stand sells); compost → fertilizer. |
 
 A top bar shows coins, fertilizer, compost and Bugdex progress on every screen.

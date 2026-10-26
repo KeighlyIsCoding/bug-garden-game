@@ -74,15 +74,15 @@ export const SEED_DROP_CHANCE: Record<SeedTier, number> = { 0: 0.6, 1: 0.4, 2: 0
 /** How often each seed tier shows up in the shop's rotating slots / random finds. */
 export const SEED_TIER_WEIGHT: Record<SeedTier, number> = { 0: 60, 1: 30, 2: 10 };
 
-export type Quality = 'normal' | 'fine' | 'perfect';
-export const QUALITY_LUCK: Record<Quality, number> = { normal: 0, fine: 0.25, perfect: 0.6 };
-export const QUALITY_LABEL: Record<Quality, string> = { normal: 'Normal', fine: 'Fine', perfect: 'Perfect' };
+export type Quality = 'normal' | 'fine' | 'perfect' | 'prize' | 'heirloom';
+export const QUALITY_LUCK: Record<Quality, number> = { normal: 0, fine: 0.25, perfect: 0.6, prize: 0.9, heirloom: 1.3 };
+export const QUALITY_LABEL: Record<Quality, string> = { normal: 'Normal', fine: 'Fine', perfect: 'Perfect', prize: 'Prize', heirloom: 'Heirloom' };
 /** Lowest to highest. */
-export const QUALITIES: Quality[] = ['normal', 'fine', 'perfect'];
+export const QUALITIES: Quality[] = ['normal', 'fine', 'perfect', 'prize', 'heirloom'];
 /** Fruit per harvest at full vigor. Better care, more fruit. */
-export const QUALITY_YIELD: Record<Quality, number> = { normal: 1, fine: 2, perfect: 3 };
+export const QUALITY_YIELD: Record<Quality, number> = { normal: 1, fine: 2, perfect: 3, prize: 4, heirloom: 5 };
 /** Sell price multiplier by quality. */
-export const QUALITY_SELL_MULT: Record<Quality, number> = { normal: 1, fine: 1.5, perfect: 2.5 };
+export const QUALITY_SELL_MULT: Record<Quality, number> = { normal: 1, fine: 1.5, perfect: 2.5, prize: 3.5, heirloom: 5 };
 
 export const fruitKey = (plantId: string, q: Quality) => `${plantId}:${q}`;
 export function parseFruitKey(key: string): { plant: PlantDef; quality: Quality } | null {

@@ -1,5 +1,6 @@
 import { countFruit, harvest, isRipe, sellPrice } from './garden';
 import type { Modifiers } from './modifiers';
+import { TUMBLER_RESERVE } from './tuning';
 import type { GameState } from './types';
 import { addTo } from './util';
 
@@ -16,7 +17,7 @@ function runBarrow(s: GameState, t: number, m: Modifiers): GameState {
   let next: GameState = { ...s, barrowAt: t };
   for (const plot of s.plots) {
     if (countFruit(next.barrow) >= m.barrowCapacity) break;
-    if (plot.plant && isRipe(plot.plant)) next = harvest(next, next.plots.find((p) => p.id === plot.id)!, 'barrow');
+    if (plot.plant && isRipe(plot.plant)) next = harvest(next, next.plots.find((p) => p.id === plot.id)!, 'barrow', m.qualityCap);
   }
   return next;
 }
@@ -42,6 +43,13 @@ function runStand(s: GameState, dt: number, m: Modifiers): GameState {
   return { ...s, fruits, coins, stand: { ...s.stand, carry } };
 }
 
+/** Compost tumbler (level 2): keeps a reserve for top-dressing and turns the rest into fertilizer. */
+function runTumbler(s: GameState, m: Modifiers): GameState {
+  if (!m.autoTumble || s.compost < TUMBLER_RESERVE + m.compostPerFertilizer) return s;
+  const n = Math.floor((s.compost - TUMBLER_RESERVE) / m.compostPerFertilizer);
+  return { ...s, compost: s.compost - n * m.compostPerFertilizer, fertilizer: s.fertilizer + n };
+}
+
 export function runAutomation(s: GameState, t: number, dt: number, m: Modifiers): GameState {
-  return runStand(runBarrow(runPump(s, t, m), t, m), dt, m);
+  return runTumbler(runStand(runBarrow(runPump(s, t, m), t, m), dt, m), m);
 }

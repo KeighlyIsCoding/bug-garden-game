@@ -13,6 +13,10 @@ export interface Plant {
   careTotal: number;
   fertilizedUntil: number;
   fertilizedThisCycle: boolean;
+  /** Hand-watered (soaked) at least once this growth cycle. Needed for Prize quality. */
+  soakedThisCycle: boolean;
+  /** Sprayed with herbicide this growth cycle: the harvest drops a quality tier. */
+  herbicideThisCycle: boolean;
 }
 
 export interface Plot {
@@ -23,6 +27,10 @@ export interface Plot {
   moisture: number;
   /** Hand-watered plots are soaked (a growth bonus) until this time. Irrigation never soaks. */
   soakedUntil: number;
+  /** Weeds were clipped (roots left in): they regrow faster until this time. */
+  cutUntil: number;
+  /** Herbicide keeps weeds back until this time. */
+  herbicideUntil: number;
   weeds: number;
   plant: Plant | null;
 }
@@ -54,6 +62,8 @@ export interface GameState {
   coins: number;
   fertilizer: number;
   compost: number;
+  /** Herbicide doses. */
+  herbicide: number;
   seeds: Record<string, number>;
   fruits: Record<string, number>;
   plots: Plot[];
@@ -79,12 +89,15 @@ export interface GameState {
   lastSummon: LastSummon | null;
 }
 
-export type Tool = 'tend' | 'water' | 'fertilize' | 'harvest' | 'plant';
+export type Tool = 'tend' | 'water' | 'fertilize' | 'harvest' | 'plant' | 'clip' | 'spray';
 
 export type Action =
   | { type: 'tick'; now: number }
   | { type: 'use'; plotId: number; tool: Tool; seed?: string | null; now: number }
   | { type: 'pullWeed'; plotId: number; now: number }
+  /** Glove: pull every weed in these plots at once. */
+  | { type: 'pullWeeds'; plotIds: number[]; now: number }
+  | { type: 'buyHerbicide' }
   | { type: 'digUp'; plotId: number; now: number }
   | { type: 'topDress'; plotId: number; now: number }
   | { type: 'buyLand'; now: number }

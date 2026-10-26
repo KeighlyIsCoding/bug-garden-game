@@ -1,4 +1,6 @@
+import type { Quality } from './plants';
 import type { GameState } from './types';
+import { COMPOST_PER_FERTILIZER, TROWEL_SEED_CHANCE } from './tuning';
 import { level } from './upgrades';
 
 /**
@@ -19,6 +21,16 @@ export interface Modifiers {
   standRate: number;
   /** Multiplier on coins from selling fruit. */
   sellMult: number;
+  /** Glove: 0 = one weed per pull; 1 = the whole plot; 2+ = a square that size. */
+  gloveReach: number;
+  /** Side of the square the clippers cover; 0 = no clippers. */
+  clipReach: number;
+  canSpray: boolean;
+  /** Best quality a harvest can reach. */
+  qualityCap: Quality;
+  digSeedChance: number;
+  compostPerFertilizer: number;
+  autoTumble: boolean;
 }
 
 const PUMP_INTERVAL = [null, 600, 300, 120, 45, 0];
@@ -35,5 +47,12 @@ export function modifiers(s: Pick<GameState, 'upgrades'>): Modifiers {
     barrowInterval: BARROW_INTERVAL[level(s, 'barrow')] ?? Infinity,
     standRate: STAND_RATE[level(s, 'stand')] ?? 0,
     sellMult: 1 + 0.25 * level(s, 'reputation'),
+    gloveReach: level(s, 'glove'),
+    clipReach: level(s, 'clippers'),
+    canSpray: level(s, 'sprayer') > 0,
+    qualityCap: level(s, 'heirloom') > 0 ? 'heirloom' : level(s, 'prize') > 0 ? 'prize' : 'perfect',
+    digSeedChance: level(s, 'trowel') > 0 ? TROWEL_SEED_CHANCE : 0,
+    compostPerFertilizer: level(s, 'tumbler') > 0 ? 2 : COMPOST_PER_FERTILIZER,
+    autoTumble: level(s, 'tumbler') > 1,
   };
 }
